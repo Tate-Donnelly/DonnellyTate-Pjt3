@@ -13,10 +13,10 @@ let lightAmbient = vec4(0.2, 0.2, 0.2, 1.0);
 let lightDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
 let lightSpecular = vec4(1.0, 1.0, 1.0, 1.0);
 
-var materialAmbient = vec4( 0.0, 1.00, 1.60, 1.0 );
-var materialDiffuse = vec4( 1.0, .8, 0.0, 1.0 );
-var materialSpecular = vec4( 5.0, 5.0, 5.0, 1.0 );
-var materialShininess = 70.0;
+var materialAmbient = vec4( 1.0, 1.00, 1.0, 1.0 );
+var materialDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
+var materialSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
+var materialShininess = 10.0;
 
 let modelMatrix, projMatrix,cameraMatrix;
 let modelMatrixLoc, projectionMatrixLoc, cameraMatrixLoc;
@@ -81,11 +81,11 @@ function loadObjectArray(){
     // Get the bunny
     bunny = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl");
 
-    objectArray.push(stopSign);
-    /*objectArray.push(lamp);
-    objectArray.push(car);
     objectArray.push(street);
-    objectArray.push(bunny);*/
+    //objectArray.push(stopSign);
+    objectArray.push(lamp);
+    //objectArray.push(car);
+    //objectArray.push(bunny);
 }
 
 function projectionMatrix(){
@@ -124,25 +124,33 @@ function cameraMovement(){
 
 function drawAllObjects(){
     objectArray.forEach(object=>{
-        if(!object.mtlParsed || !object.objParsed) return;
+        //if(object.mtlParsed || !object.objParsed) return;
+        //setTexture(object.texture);
         object.faces.forEach(face=>{
+            materialAmbient=object.ambientMap.get(face.material);
             materialDiffuse=object.diffuseMap.get(face.material);
             materialSpecular=object.specularMap.get(face.material);
             drawModel(face);
 
-            console.log(face.material,object.diffuseMap,object.specularMap);
+            //console.log(face.material,object.diffuseMap,object.specularMap);
         });
     })
 }
 
+function setTexture(texture){
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_2D,texture);
+}
+
 function drawModel(face){
-    console.log(face.material);
-    //configureTexture(face.material);
     createBuffer(4,'vPosition',face.faceVertices);
     createBuffer(4,'vNormal',face.faceNormals);
     createBuffer(2,'vTexCoord',face.faceTexCoords);
-    var vTexCoord = gl.getAttribLocation(program, "vTexCoord");
-    gl.enableVertexAttribArray(vTexCoord);
+    //console.log(face.faceTexCoords);
+    gl.enableVertexAttribArray(gl.getAttribLocation(program, "vTexCoord"));
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.drawArrays(gl.TRIANGLES,0,face.faceVertices.length);
 }
