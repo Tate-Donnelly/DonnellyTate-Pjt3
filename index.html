@@ -5,8 +5,7 @@
         <title>CS 4731 Final Project Part I</title>
         <script id="vshader" type="x-shader/x-vertex">
             attribute vec4 vPosition, vColor,vNormal;
-            uniform mat4 modelMatrix;
-			uniform mat4 cameraMatrix;
+            uniform mat4 modelMatrix, cameraMatrix, transMatrix;
 			uniform mat4 projectionMatrix;
 			uniform vec4 diffuseProduct, specularProduct, ambientProduct;
 			uniform vec4 lightPosition;
@@ -18,7 +17,7 @@
 			varying vec2 fTexCoord;
 
             void main() {
-                mat4 modelViewMatrix=cameraMatrix*modelMatrix;
+                mat4 modelViewMatrix=cameraMatrix* transMatrix *modelMatrix;
                 vec3 pos = (modelViewMatrix * vPosition).xyz;
 		        L = normalize(lightPosition.xyz - pos);
 		        N = normalize(modelViewMatrix * vNormal).xyz;

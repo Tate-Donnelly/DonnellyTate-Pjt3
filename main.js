@@ -48,6 +48,7 @@ function main() {
     // Set clear color
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
+    gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
     gl.enable(gl.DEPTH_TEST);
 
@@ -67,25 +68,25 @@ function main() {
 
 function loadObjectArray(){
     // Get the lamp
-    lamp = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl");
+    lamp = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl", vec3(0.0,0.0,0.0));
 
     // Get the car
-    car = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl");
+    car = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",vec3(0.0,0.0,0.0));
 
     // Get the stop sign
-    stopSign = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl");
+    stopSign = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",vec3(5.0,0.0,0.0));
 
     // Get the street
-    street = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl");
+    street = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",vec3(0.0,0.0,0.0));
 
     // Get the bunny
-    bunny = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl");
+    bunny = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",vec3(0.0,0.0,0.0));
 
     objectArray.push(street);
-    //objectArray.push(stopSign);
+    objectArray.push(stopSign);
     objectArray.push(lamp);
-    //objectArray.push(car);
-    //objectArray.push(bunny);
+    objectArray.push(car);
+    objectArray.push(bunny);
 }
 
 function projectionMatrix(){
@@ -124,13 +125,11 @@ function cameraMovement(){
 
 function drawAllObjects(){
     objectArray.forEach(object=>{
-        //if(object.mtlParsed || !object.objParsed) return;
-        //setTexture(object.texture);
         object.faces.forEach(face=>{
             materialAmbient=object.ambientMap.get(face.material);
             materialDiffuse=object.diffuseMap.get(face.material);
             materialSpecular=object.specularMap.get(face.material);
-            drawModel(face);
+            drawModel(object,face);
 
             //console.log(face.material,object.diffuseMap,object.specularMap);
         });
@@ -145,49 +144,40 @@ function setTexture(texture){
     gl.bindTexture(gl.TEXTURE_2D,texture);
 }
 
-function drawModel(face){
+function drawModel(object,face){
+
+    setTexture(object.texture);
+    //configureTexture(object);
     createBuffer(4,'vPosition',face.faceVertices);
     createBuffer(4,'vNormal',face.faceNormals);
     createBuffer(2,'vTexCoord',face.faceTexCoords);
+    let tMatrixLoc = gl.getUniformLocation(program, "transMatrix");
+    gl.uniformMatrix4fv(tMatrixLoc, false, flatten(translate(object.position)));
     //console.log(face.faceTexCoords);
     gl.enableVertexAttribArray(gl.getAttribLocation(program, "vTexCoord"));
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.drawArrays(gl.TRIANGLES,0,face.faceVertices.length);
 }
 
-function configureTexture(image, ind, textureLoc, fragmentLoc) {
+function configureTexture(object) {
+    // Create and bind texture object
+    object.texture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, object.texture);
 
-    //Create a texture object
-    let tex = gl.createTexture();
-    gl.activeTexture(textureLoc);
-
-    //Bind it as the current two-dimensional texture
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-
-    //How do we interpret a value of s or t outside of the range (0.0, 1.0)?
-    //Generally, we want the texture either to repeat or to clamp the values to 0.0 or 1.0
-    //By executing these functions after the gl.bindTexture, the parameters become part of the texture object
-    //Other option for last parameter is gl.REPEAT, but that doesn't work here
+    // Set behavior for s-t texture coordinates outside the 0.0-1.0 range
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    // Specify the array of the two-dimensional texture elements
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, object.imagePath);
 
-    //Specify the array of the two-dimensional texture elements
-    //target, level, iformat, format, type, image
-    //target - lets us choose a single image or set up a cube map
-    //level - mipmapping, where 0 denotes the highest resolution or that we are not using mipmapping
-    //iformat - how to store the texture in memory
-    //format and type - how the pixels are stored, so that WebGL knows how to read those pixels in
-    //image - self-explanatory
-    gl.texImage2D(
-        gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image
-    );
-
+    // Specify point-sampling behavior
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
-    //Link the texture object we create in the application to the sampler in the fragment shader
-    gl.uniform1i(gl.getUniformLocation(program, fragmentLoc), ind);
+    // Link the texture object we create in the application to the sampler in the fragment shader
+    gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
 }
 
 function lighting(){
