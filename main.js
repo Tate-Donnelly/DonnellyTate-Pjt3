@@ -71,7 +71,7 @@ function loadObjectArray(){
     lamp = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl", vec3(0.0,0.0,0.0));
 
     // Get the car
-    car = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",vec3(0.0,0.0,0.0));
+    car = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",vec3(3,0.0,0.0));
 
     // Get the stop sign
     stopSign = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",vec3(5.0,0.0,0.0));
@@ -82,11 +82,11 @@ function loadObjectArray(){
     // Get the bunny
     bunny = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",vec3(0.0,0.0,0.0));
 
-    objectArray.push(street);
+    //objectArray.push(street);
     objectArray.push(stopSign);
     objectArray.push(lamp);
-    objectArray.push(car);
-    objectArray.push(bunny);
+    //objectArray.push(car);
+    //objectArray.push(bunny);
 }
 
 function projectionMatrix(){
@@ -119,7 +119,7 @@ function render(){
 let alpha=0;
 function cameraMovement(){
     if(moveCamera){
-        alpha+=0.5
+        alpha+=1.5
     }
 }
 
@@ -146,8 +146,8 @@ function setTexture(texture){
 
 function drawModel(object,face){
 
-    setTexture(object.texture);
-    //configureTexture(object);
+    //setTexture(object.texture);
+    configureTexture(object);
     createBuffer(4,'vPosition',face.faceVertices);
     createBuffer(4,'vNormal',face.faceNormals);
     createBuffer(2,'vTexCoord',face.faceTexCoords);
@@ -170,7 +170,7 @@ function configureTexture(object) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     // Specify the array of the two-dimensional texture elements
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, object.imagePath);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, object.image);
 
     // Specify point-sampling behavior
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
