@@ -76,8 +76,9 @@ function loadObjectArray(){
     objectArray.push(street);
     objectArray.push(car);
     objectArray.push(stopSign);
-    //objectArray.push(lamp);
+    objectArray.push(lamp);
     //objectArray.push(bunny);
+    checkObjects();
 }
 
 function projectionMatrix(){
@@ -107,7 +108,8 @@ function setCameraMatrix(){
 function render(){
     gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     setCameraMatrix();
-    if(!checkObjects()) drawAllObjects();
+    if(objectsReady) drawAllObjects();
+    else checkObjects();
     requestAnimFrame(render);
 }
 
@@ -119,7 +121,7 @@ function checkObjects(){
         obj=obj&& object.objParsed;
         mtl=mtl&& object.mtlParsed;
     })
-    objectsReady=textured && obj && mtl;
+    objectsReady=obj && mtl;
 }
 
 function drawAllObjects(){
@@ -254,7 +256,7 @@ function loadObjects(){
     lamp = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl", vec3(0.0,0.0,0.0));
 
     // Get the car
-    car = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",vec3(3,0.0,0.0));
+    car = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",vec3(-3,0.0,0.0),-180);
 
     // Get the stop sign
     stopSign = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",vec3(-.850,0.0,-4.00),-90);
