@@ -24,7 +24,8 @@ let cameraPosition= vec3(0,4.5,4.5);
 let cameraTarget = vec3(0, 0, 0.0);
 let cameraUp = vec3(0.0, 1.0, 0.0);
 
-let cameraRotation=0;
+let cameraRotation=0,cameraBounce;
+let cameraBounceUp=true;
 
 let near = .1;
 let far = 100;
@@ -73,8 +74,8 @@ function main() {
 
 function loadObjectArray(){
     loadObjects();
-    //objectArray.push(street);
-    objectArray.push(car);
+    objectArray.push(street);
+    //objectArray.push(car);
     objectArray.push(stopSign);
     //objectArray.push(lamp);
     //objectArray.push(bunny);
@@ -97,11 +98,18 @@ function modelViewMatrix(){
 function setCameraMatrix(){
     let bob,pos,eye, target, at;
     if(!moveCamera) return;
+
     cameraRotation+=1.0;
-    pos=mult(rotateY(cameraRotation),vec4(...cameraPosition));
+
+    bob=scale(Math.sin(cameraRotation / 25), vec4(0.0, 1.00, 0.0, 0.0));
+
+    pos=add(mult(rotateY(cameraRotation),vec4(...cameraPosition)),bob);
+    target=mult(rotateY(cameraRotation),vec4(...cameraTarget));
     eye=vec3(pos[0],pos[1],pos[2]);
+    at=vec3([target[0],target[1],target[2]]);
+
     cameraMatrixLoc=gl.getUniformLocation( program, "cameraMatrix" );
-    cameraMatrix = lookAt(eye, cameraTarget , cameraUp);
+    cameraMatrix = lookAt(eye, at , cameraUp);
     gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(cameraMatrix) );
 }
 
@@ -260,7 +268,8 @@ function loadObjects(){
     stopSign = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",vec3(-.850,0.0,-4.00),-90);
 
     // Get the street
-    street = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",vec3(0.0,0.0,0.0));
+    street = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",vec3(.850,0.0,-4.00),90);
+    //street = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",vec3(0.0,0.0,0.0));
 
     // Get the bunny
     bunny = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",vec3(0.0,0.0,0.0));
