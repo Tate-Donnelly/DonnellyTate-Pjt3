@@ -94,8 +94,11 @@ function projectionMatrix(){
     gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projMatrix) );
 }
 function modelViewMatrix(){
+    let bob,pos,eye, target, at;
+    pos=mult(rotateY(alpha),vec4(...cameraPosition));
+    eye=vec3(pos[0],pos[1],pos[2]);
     cameraMatrixLoc=gl.getUniformLocation( program, "cameraMatrix" );
-    cameraMatrix = lookAt(cameraPosition, cameraTarget , cameraUp);
+    cameraMatrix = lookAt(eye, cameraTarget , cameraUp);
 
     modelMatrixLoc = gl.getUniformLocation( program, "modelMatrix" );
     modelMatrix = mult(mult(translateMatrix,rotationMatrix),scaleMatrix);
@@ -106,10 +109,17 @@ function modelViewMatrix(){
 
 function render(){
     gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    cameraMovement();
     modelViewMatrix();
     drawAllObjects();
     lighting();
     requestAnimFrame(render);
+}
+let alpha=0;
+function cameraMovement(){
+    if(moveCamera){
+        alpha+=0.5
+    }
 }
 
 function drawAllObjects(){
