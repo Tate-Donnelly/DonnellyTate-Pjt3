@@ -73,10 +73,10 @@ function main() {
 
 function loadObjectArray(){
     loadObjects();
-    objectArray.push(street);
+    //objectArray.push(street);
     objectArray.push(car);
     objectArray.push(stopSign);
-    objectArray.push(lamp);
+    //objectArray.push(lamp);
     //objectArray.push(bunny);
     checkObjects();
 }
@@ -90,7 +90,7 @@ function modelViewMatrix(){
     setCameraMatrix();
 
     modelMatrixLoc = gl.getUniformLocation( program, "modelMatrix" );
-    modelMatrix = mult(mult(translateMatrix,rotationMatrix),scaleMatrix);
+    modelMatrix = mult(mult(rotationMatrix,translateMatrix),scaleMatrix);
     gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(modelMatrix) );
 }
 
@@ -150,12 +150,10 @@ function drawModel(object,face){
     createBuffer(4,'vPosition',face.faceVertices);
     createBuffer(4,'vNormal',face.faceNormals);
     createBuffer(2,'vTexCoord',face.faceTexCoords);
-    let transMatrixLoc = gl.getUniformLocation(program, "transMatrix");
-    gl.uniformMatrix4fv(transMatrixLoc, false, flatten(translate(object.position)));
-    let rotationMatrixLoc = gl.getUniformLocation(program, "rotationMatrix");
-    gl.uniformMatrix4fv(rotationMatrixLoc, false, flatten(rotateY(object.rotation)));
-    //console.log(face.faceTexCoords);
-    gl.enableVertexAttribArray(gl.getAttribLocation(program, "vTexCoord"));
+
+    modelMatrixLoc = gl.getUniformLocation( program, "modelMatrix" );
+    modelMatrix = mult(rotateY(object.rotation),translate(object.position));
+    gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(modelMatrix) );
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.drawArrays(gl.TRIANGLES,0,face.faceVertices.length);
 }

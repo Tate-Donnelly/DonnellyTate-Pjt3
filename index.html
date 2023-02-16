@@ -17,7 +17,7 @@
 			varying vec2 fTexCoord;
 
             void main() {
-                mat4 modelViewMatrix=cameraMatrix* rotationMatrix*transMatrix *modelMatrix;
+                mat4 modelViewMatrix=cameraMatrix*modelMatrix;
                 vec3 pos = (modelViewMatrix * vPosition).xyz;
 		        L = normalize(lightPosition.xyz - pos);
 		        N = normalize(modelViewMatrix * vNormal).xyz;
