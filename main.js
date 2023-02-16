@@ -1,19 +1,18 @@
 let gl, program,canvas;
 var objectArray = [];
-var pointsArray = [];
-var colorsArray = [];
-var texCoordsArray = [];
-var minT = 0.0;
-var maxT = 1.0;
-let lampOn=true, moveCamera=false,moveCar=false,moveWithCar=false,shadowsVisible=true,skyboxOn=true,reflectionsOn=true;
+let objectsReady=false;
+let lampOn=true, shadowsVisible=true,skyboxOn=true;
+let moveCar=false;
+let moveCamera=false,moveWithCar=false;
+let reflectionsOn=true;
 let lamp, car, stopSign, street, bunny;
 
-let lightPosition = vec4(0.0, 2.5, 0.0, 0.0);
-let lightAmbient = vec4(0.2, 0.2, 0.2, 1.0);
+let lightPosition =  scale(1.0,vec4(0.0, 3.0, 0.0));
+let lightAmbient = vec4(0.2, 0.2, 0.3, 1.0);
 let lightDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
 let lightSpecular = vec4(1.0, 1.0, 1.0, 1.0);
 
-var materialAmbient = vec4( 1.0, 1.00, 1.0, 1.0 );
+var materialAmbient = vec4( 1.0, 1.0, 1.0, 1.0 );
 var materialDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
 var materialSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
 var materialShininess = 10.0;
@@ -21,9 +20,12 @@ var materialShininess = 10.0;
 let modelMatrix, projMatrix,cameraMatrix;
 let modelMatrixLoc, projectionMatrixLoc, cameraMatrixLoc;
 let translateMatrix, rotationMatrix, scaleMatrix;
-let cameraPosition= vec3(10,7.5,3.5);
-let cameraTarget = vec3(0, 0, -1.0);
+let cameraPosition= vec3(0,4.5,4.5);
+let cameraTarget = vec3(0, 0, 0.0);
 let cameraUp = vec3(0.0, 1.0, 0.0);
+
+let cameraRotation=0;
+
 let near = .1;
 let far = 100;
 let fov=60;
@@ -62,30 +64,19 @@ function main() {
     scaleMatrix=mat4();
     projectionMatrix();
     modelViewMatrix();
-    lighting();
+    cameraMatrixLoc=gl.getUniformLocation( program, "cameraMatrix" );
+    cameraMatrix = lookAt(cameraPosition, cameraTarget , cameraUp);
+    gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(cameraMatrix) );
+    staticLighting();
     render();
 }
 
 function loadObjectArray(){
-    // Get the lamp
-    lamp = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl", vec3(0.0,0.0,0.0));
-
-    // Get the car
-    car = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",vec3(3,0.0,0.0));
-
-    // Get the stop sign
-    stopSign = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",vec3(5.0,0.0,0.0));
-
-    // Get the street
-    street = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",vec3(0.0,0.0,0.0));
-
-    // Get the bunny
-    bunny = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",vec3(0.0,0.0,0.0));
-
-    //objectArray.push(street);
+    loadObjects();
+    objectArray.push(street);
+    objectArray.push(car);
     objectArray.push(stopSign);
-    objectArray.push(lamp);
-    //objectArray.push(car);
+    //objectArray.push(lamp);
     //objectArray.push(bunny);
 }
 
@@ -95,32 +86,40 @@ function projectionMatrix(){
     gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projMatrix) );
 }
 function modelViewMatrix(){
-    let bob,pos,eye, target, at;
-    pos=mult(rotateY(alpha),vec4(...cameraPosition));
-    eye=vec3(pos[0],pos[1],pos[2]);
-    cameraMatrixLoc=gl.getUniformLocation( program, "cameraMatrix" );
-    cameraMatrix = lookAt(eye, cameraTarget , cameraUp);
+    setCameraMatrix();
 
     modelMatrixLoc = gl.getUniformLocation( program, "modelMatrix" );
     modelMatrix = mult(mult(translateMatrix,rotationMatrix),scaleMatrix);
-
-    gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(cameraMatrix) );
     gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(modelMatrix) );
+}
+
+function setCameraMatrix(){
+    let bob,pos,eye, target, at;
+    if(!moveCamera) return;
+    cameraRotation+=1.0;
+    pos=mult(rotateY(cameraRotation),vec4(...cameraPosition));
+    eye=vec3(pos[0],pos[1],pos[2]);
+    cameraMatrixLoc=gl.getUniformLocation( program, "cameraMatrix" );
+    cameraMatrix = lookAt(eye, cameraTarget , cameraUp);
+    gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(cameraMatrix) );
 }
 
 function render(){
     gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    cameraMovement();
-    modelViewMatrix();
-    drawAllObjects();
-    lighting();
+    setCameraMatrix();
+    if(!checkObjects()) drawAllObjects();
     requestAnimFrame(render);
 }
-let alpha=0;
-function cameraMovement(){
-    if(moveCamera){
-        alpha+=1.5
-    }
+
+
+function checkObjects(){
+    let textured=true, obj=true, mtl=true;
+    objectArray.forEach(object=>{
+        textured=textured && object.textured;
+        obj=obj&& object.objParsed;
+        mtl=mtl&& object.mtlParsed;
+    })
+    objectsReady=textured && obj && mtl;
 }
 
 function drawAllObjects(){
@@ -130,8 +129,6 @@ function drawAllObjects(){
             materialDiffuse=object.diffuseMap.get(face.material);
             materialSpecular=object.specularMap.get(face.material);
             drawModel(object,face);
-
-            //console.log(face.material,object.diffuseMap,object.specularMap);
         });
     })
 }
@@ -145,14 +142,16 @@ function setTexture(texture){
 }
 
 function drawModel(object,face){
-
-    //setTexture(object.texture);
-    configureTexture(object);
+    setTexture(object.texture);
+    //configureTexture(object);
+    //configureTexture(object);
     createBuffer(4,'vPosition',face.faceVertices);
     createBuffer(4,'vNormal',face.faceNormals);
     createBuffer(2,'vTexCoord',face.faceTexCoords);
-    let tMatrixLoc = gl.getUniformLocation(program, "transMatrix");
-    gl.uniformMatrix4fv(tMatrixLoc, false, flatten(translate(object.position)));
+    let transMatrixLoc = gl.getUniformLocation(program, "transMatrix");
+    gl.uniformMatrix4fv(transMatrixLoc, false, flatten(translate(object.position)));
+    let rotationMatrixLoc = gl.getUniformLocation(program, "rotationMatrix");
+    gl.uniformMatrix4fv(rotationMatrixLoc, false, flatten(rotateY(object.rotation)));
     //console.log(face.faceTexCoords);
     gl.enableVertexAttribArray(gl.getAttribLocation(program, "vTexCoord"));
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -180,19 +179,20 @@ function configureTexture(object) {
     gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
 }
 
+function staticLighting(){
+    gl.uniform4fv(gl.getUniformLocation(program, "lightPosition"), flatten(lightPosition));
+    gl.uniform1f(gl.getUniformLocation(program, "shininess"), materialShininess);
+    gl.uniform1i(gl.getUniformLocation(program, "lampOn"), lampOn);
+    lighting();
+}
+
 function lighting(){
     let diffuseProduct = mult(lightDiffuse, materialDiffuse);
     let specularProduct = mult(lightSpecular, materialSpecular);
     let ambientProduct = mult(lightAmbient, materialAmbient);
-    /*
-    let diffuseProduct = lightDiffuse;
-    let specularProduct = lightSpecular;
-    let ambientProduct = lightAmbient;*/
     gl.uniform4fv(gl.getUniformLocation(program, "diffuseProduct"), flatten(diffuseProduct));
     gl.uniform4fv(gl.getUniformLocation(program, "specularProduct"), flatten(specularProduct));
     gl.uniform4fv(gl.getUniformLocation(program, "ambientProduct"), flatten(ambientProduct));
-    gl.uniform4fv(gl.getUniformLocation(program, "lightPosition"), flatten(lightPosition));
-    gl.uniform1f(gl.getUniformLocation(program, "shininess"), materialShininess);
 }
 function createBuffer(size,attribute, array){
     var cBuffer = gl.createBuffer();
@@ -214,7 +214,7 @@ function keypressInput(event){
         case 'l':
             /*Toggle light on and off. Make sure that ambient light is applied when off*/
             lampOn=!lampOn;
-            render();
+            gl.uniform1i(gl.getUniformLocation(program, "lampOn"), lampOn);
             break;
         case 'c':
             /*
@@ -247,4 +247,21 @@ function keypressInput(event){
             /*makes the hood ornament semitransparent and begin to refract the cube map*/
             break;
     }
+}
+
+function loadObjects(){
+    // Get the lamp
+    lamp = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl", vec3(0.0,0.0,0.0));
+
+    // Get the car
+    car = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",vec3(3,0.0,0.0));
+
+    // Get the stop sign
+    stopSign = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",vec3(-.850,0.0,-4.00),-90);
+
+    // Get the street
+    street = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",vec3(0.0,0.0,0.0));
+
+    // Get the bunny
+    bunny = new Model("https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",vec3(0.0,0.0,0.0));
 }
