@@ -18,9 +18,9 @@
 
             void main() {
                 mat4 modelViewMatrix=cameraMatrix*modelMatrix;
-                vec3 pos = (modelViewMatrix * vPosition).xyz;
+                vec3 pos = (modelMatrix * vPosition).xyz;
 		        L = normalize(lightPosition.xyz - pos);
-		        N = normalize(modelViewMatrix * vNormal).xyz;
+		        N = normalize(modelMatrix * vNormal).xyz;
 		        V = normalize(-pos);
                 fTexCoord = vTexCoord;
 			    gl_Position = projectionMatrix * modelViewMatrix * vPosition;
@@ -34,22 +34,28 @@
 			
 			varying vec4 fColor;
 			varying vec3 L, N, V;
-			uniform highp vec4 ambientProduct, diffuseProduct, specularProduct;
+			uniform vec4 lightSpecular, lightDiffuse, lightAmbient;
+            uniform vec4 materialDiffuse, materialSpecular, materialAmbient;
 			uniform highp float shininess;
 			uniform bool lampOn;
 			
             void main() {
                 vec3 R = (2.0 * dot(L, N) * N) - L;
+                vec4 diffuseProduct=lightDiffuse*materialDiffuse;
 		        vec4 diffuse = diffuseProduct * dot(L, N);
-		        vec4 ambient = ambientProduct;
+		        vec4 ambient = lightAmbient*materialAmbient;
+		        vec4 specularProduct = lightSpecular * materialSpecular;
 		        vec4 specular = specularProduct * pow(max(dot(V, R), 0.0), shininess);
 		        vec4 objectColor= texture2D(texture, fTexCoord);
 		        vec4 pColor;
-		         if(lampOn){
-		         pColor=(specular+diffuse)*objectColor+ambient;
-		         }else{
-		         pColor=(specular+diffuse)*objectColor+.1;
-		         }
+		        
+		        vec4 light;
+		        if(lampOn){
+		           light=specular+diffuse+ambient;
+		        }else{
+		           light=ambient+diffuse*0.5;
+		        }
+		        pColor=light+objectColor;
                 pColor.a=1.0;
                 gl_FragColor = pColor;
             }
