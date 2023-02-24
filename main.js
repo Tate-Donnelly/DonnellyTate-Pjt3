@@ -12,15 +12,21 @@ let lightPosition =vec4(-2, 5, 1.25,1);
 let lightAmbient = vec4(0.2, 0.2, 0.2, 1);
 let lightDiffuse = vec4(diffuse, diffuse, diffuse, 1.0);
 let lightSpecular = vec4(specular,specular,specular, 1.0);
+let shinyLoc;
+
+let lightAmbientLoc, lightPositionLoc, lightSpecularLoc, lightDiffuseLoc;
+let materialSpecularLoc,materialDiffuseLoc,materialAmbientLoc, lampLoc;
+
 
 var materialAmbient = vec4( 1.0, 1.0, 1.0, 1.0 );
 var materialDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
 var materialSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
 var materialShininess = 10.0;
 
-let modelMatrix, projMatrix,cameraMatrix;
-let modelMatrixLoc, projectionMatrixLoc, cameraMatrixLoc;
-let translateMatrix, rotationMatrix, scaleMatrix;
+let startingMatrix, animateMatrix, projMatrix,cameraMatrix, modelMatrix;
+let projectionMatrixLoc, cameraMatrixLoc, modelMatrixLoc;
+let startingMatrixStack=[],animateMatrixStack=[];
+let startingMatrixLoc, animateMatrixLoc,textureLoc;
 let cameraPosition= vec3(0,4.5,4.5);
 let cameraTarget = vec3(0, 0, 0.0);
 let cameraUp = vec3(0.0, 1.0, 0.0);
@@ -58,28 +64,22 @@ function main() {
     gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     program = initShaders(gl, "vshader", "fshader");
     gl.useProgram(program);
+    textureLoc=gl.getUniformLocation(program, "texture");
 
     loadObjectArray();
-    translateMatrix=mat4();
-    rotationMatrix=mat4();
-    scaleMatrix=mat4();
     projectionMatrix();
     modelViewMatrix();
-    cameraMatrixLoc=gl.getUniformLocation( program, "cameraMatrix" );
-    cameraMatrix = lookAt(cameraPosition, cameraTarget , cameraUp);
-    gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(cameraMatrix) );
     defaultLighting();
-    render();
+    preRender();
 }
 
 function loadObjectArray(){
     loadObjects();
-    objectArray.push(street);
-    objectArray.push(car);
-    objectArray.push(stopSign);
-    objectArray.push(lamp);
+    street.addChild(car);
+    street.addChild(stopSign);
+    street.addChild(lamp);
+    //street.addChild(bunny);
     car.addChild(bunny);
-    //objectArray.push(bunny);
     checkObjects();
 }
 
@@ -91,9 +91,22 @@ function projectionMatrix(){
 function modelViewMatrix(){
     setCameraMatrix();
 
-    modelMatrixLoc = gl.getUniformLocation( program, "modelMatrix" );
-    modelMatrix = mult(mult(rotationMatrix,translateMatrix),scaleMatrix);
-    gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(modelMatrix) );
+    startingMatrix=mat4();
+    animateMatrix=mat4();
+    modelMatrix=mat4();
+
+    //Model
+    modelMatrixLoc=gl.getUniformLocation( program, "modelMatrix" );
+    startingMatrixLoc=gl.getUniformLocation( program, "startingMatrix" );
+    animateMatrixLoc=gl.getUniformLocation( program, "animateMatrix" );
+    gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(modelMatrix ) );
+    gl.uniformMatrix4fv(startingMatrixLoc, false, flatten(startingMatrix) );
+    gl.uniformMatrix4fv(animateMatrixLoc, false, flatten(animateMatrix) );
+
+    //View
+    cameraMatrixLoc=gl.getUniformLocation( program, "cameraMatrix" );
+    cameraMatrix = lookAt(cameraPosition, cameraTarget , cameraUp);
+    gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(cameraMatrix) );
 }
 
 function setCameraMatrix(){
@@ -101,41 +114,41 @@ function setCameraMatrix(){
 
     bob=scale(Math.sin(cameraRotation / 25), vec4(0.0, .2500, 0.0, 0.0));
 
-    //pos=add(mult(rotateY(cameraRotation),vec4(...cameraPosition)),bob);
+    pos=add(mult(rotateY(cameraRotation),vec4(...cameraPosition)),bob);
     pos=mult(rotateY(cameraRotation),vec4(...cameraPosition));
     target=mult(rotateY(cameraRotation),vec4(...cameraTarget));
 
     let view = lookAt([pos[0],pos[1],pos[2]], [target[0],target[1],target[2]] , cameraUp);
 
-    gl.uniformMatrix4fv(gl.getUniformLocation( program, "cameraMatrix" ), false, flatten(view) );
+    gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(view) );
 }
 
-function render(){
+function preRender(){
     if(objectsReady) {
-        draw();
+        render();
     }
     else {
         checkObjects();
-        requestAnimFrame(render);
+        requestAnimFrame(preRender);
     }
 }
 
-function draw(){
+function render(){
     gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     if(moveCamera) {
         cameraRotation+=1.0;
         setCameraMatrix();
     }
 
-    drawAllObjects();
-    requestAnimFrame(draw);
+    hierarchy(street);
+    requestAnimFrame(render);
 }
 
 
 
 function checkObjects(){
     for (let i = 0; i < objectArray.length; i++){
-        if(!objectArray[i].mtlParsed || !objectArray[i].objParsed){
+        if(!objectArray[i].mtlParsed || !objectArray[i].objParsed || !objectArray[i].ready){
             objectsReady=false;
             return;
         }
@@ -143,35 +156,59 @@ function checkObjects(){
     objectsReady=true;
 }
 
-function drawAllObjects(){
-    for (let i = 0; i < objectArray.length; i++){
-        for (let j = 0; j < objectArray[i].faces.length; j++){
-            drawFace(objectArray[i],objectArray[i].faces[j]);
-        }
-    }
-}
+function hierarchy(object) {
+    startingMatrixStack.push(startingMatrix);
+    animateMatrixStack.push(animateMatrix);
+    startingMatrix = mult(startingMatrix,object.startingMatrix);
 
-function drawFace(object,face){
+    gl.uniformMatrix4fv( startingMatrixLoc, false, flatten(startingMatrix) );
+
+    animateMatrix = mult(object.animateMatrix, animateMatrix);
+    gl.uniformMatrix4fv( animateMatrixLoc, false, flatten(animateMatrix) );
+
     configureTexture(object);
+    //gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(object.getModelMatrix()) );
 
-    createBuffer(4,'vPosition',face.faceVertices);
-    createBuffer(4,'vNormal',face.faceNormals);
-    createBuffer(2,'vTexCoord',face.faceTexCoords);
+    gl.uniformMatrix4fv(startingMatrixLoc, false, flatten(object.startingMatrix) );
+    gl.uniformMatrix4fv(animateMatrixLoc, false, flatten(object.animateMatrix) );
 
-    modelMatrixLoc = gl.getUniformLocation( program, "modelMatrix" );
-    modelMatrix = mult(rotateY(object.rotation),translate(object.position));
-    gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(modelMatrix) );
 
-    materialDiffuse=object.diffuseMap.get(face.material);
-    materialSpecular=object.specularMap.get(face.material);
-    gl.uniform4fv(gl.getUniformLocation(program, "shininess"), flatten(object.shiny));
+
+
+
+    let m=Array.from(object.materials.values());
+    let index=0;
+    for(let i = 0; i < m.length; i++){
+        drawMaterial(object,index,m[i]);
+        index++;
+    }
     lighting();
 
+    for(let i = 0; i < object.children.length; i++) {
+        hierarchy(object.children[i]);
+    }
+    startingMatrix = startingMatrixStack.pop();
+    animateMatrix = animateMatrixStack.pop();
+}
+
+
+function drawMaterial(object,index, material)
+{
+    materialDiffuse=object.diffuseMap.get(material.material);
+    materialSpecular=object.specularMap.get(material.material);
+    gl.uniform1f(shinyLoc, object.shiny);
+    lighting();
+
+    createBuffer(4,'vPosition',material.faceVertices);
+    createBuffer(4,'vNormal',material.faceNormals);
+    createBuffer(2,'vTexCoord',material.faceTexCoords);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    gl.drawArrays(gl.TRIANGLE_FAN,0,face.faceVertices.length);
+    gl.drawArrays( gl.TRIANGLES, 0, material.faceVertices.length );
+
 }
 
 function configureTexture(object) {
+    if(!object.textured || object.textureConfigured) return;
     // Create and bind texture object
     object.texture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
@@ -189,15 +226,16 @@ function configureTexture(object) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
     // Link the texture object we create in the application to the sampler in the fragment shader
-    gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
+    gl.uniform1i(textureLoc, 0);
+    object.textureConfigured=true;
 }
 
 function lighting(){
-    gl.uniform4fv(gl.getUniformLocation(program, "lightSpecular"), flatten(lightSpecular));
-    gl.uniform4fv(gl.getUniformLocation(program, "lightDiffuse"), flatten(lightDiffuse));
-    gl.uniform4fv(gl.getUniformLocation(program, "materialSpecular"), flatten(materialSpecular));
-    gl.uniform4fv(gl.getUniformLocation(program, "materialDiffuse"), flatten(materialDiffuse));
-    gl.uniform4fv(gl.getUniformLocation(program, "shininess"), flatten(materialShininess));
+    gl.uniform4fv(lightSpecularLoc, flatten(lightSpecular));
+    gl.uniform4fv(lightDiffuseLoc, flatten(lightDiffuse));
+    gl.uniform4fv(materialSpecularLoc, flatten(materialSpecular));
+    gl.uniform4fv(materialDiffuseLoc, flatten(materialDiffuse));
+    gl.uniform1f(shinyLoc, materialShininess);
 }
 
 window.addEventListener("keypress",(event)=>{
@@ -211,7 +249,7 @@ function keypressInput(event){
             /*Toggle light on and off. Make sure that ambient light is applied when off*/
             lampOn=!lampOn;
             console.log(lampOn);
-            gl.uniform1i(gl.getUniformLocation(program, "lampOn"), lampOn);
+            gl.uniform1i(lampLoc, lampOn);
 
             break;
         case 'c':
@@ -249,19 +287,21 @@ function keypressInput(event){
 
 function loadObjects(){
     // Get the lamp
-    lamp = new Model(gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl", vec3(0.0,0.0,0.0));
-
+    lamp = new Model("lamp",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj",
+        "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl", translate(0,0,0));
+    objectArray.push(lamp);
     // Get the car
-    car = new Model(gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",vec3(-3,0.0,0.0),-180);
-
+    car = new Model("car",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(-180));
+    objectArray.push(car);
     // Get the stop sign
-    stopSign = new Model(gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",vec3(-.850,0.0,-4.00),-90);
-
+    stopSign = new Model("stopSign",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(-90));
+    objectArray.push(stopSign);
     // Get the street
-    street = new Model(gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",vec3(0.0,0.0,0.0));
-
+    street = new Model("street",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",translate(0,0,0));
+    objectArray.push(street);
     // Get the bunny
-    bunny = new Model(gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",vec3(0.0,0.0,0.0));
+    bunny = new Model("bunny",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",translate(0,0,0));
+    objectArray.push(bunny);
 }
 
 function createBuffer(size,attribute, array){
@@ -273,12 +313,27 @@ function createBuffer(size,attribute, array){
     gl.vertexAttribPointer( attributeLoc, size, gl.FLOAT, false, 0, 0 );
     gl.enableVertexAttribArray( attributeLoc );
 }
-
 function defaultLighting(){
-    gl.uniform4fv(gl.getUniformLocation(program, "lightAmbient"), flatten(lightAmbient));
-    gl.uniform4fv(gl.getUniformLocation(program, "materialAmbient"), flatten(materialAmbient));
-    gl.uniform4fv(gl.getUniformLocation(program, "lightPosition"), flatten(lightPosition));
-    gl.uniform1f(gl.getUniformLocation(program, "shininess"), materialShininess);
-    gl.uniform1i(gl.getUniformLocation(program, "lampOn"), lampOn);
+    shinyLoc=gl.getUniformLocation(program, "shininess");
+    lightAmbientLoc=gl.getUniformLocation(program, "lightAmbient");
+    lightPositionLoc=gl.getUniformLocation(program, "lightPosition");
+    materialAmbientLoc=gl.getUniformLocation(program, "materialAmbient");
+    lampLoc=gl.getUniformLocation(program, "lampOn");
+
+    lightSpecularLoc=gl.getUniformLocation(program, "lightSpecular");
+    lightDiffuseLoc=gl.getUniformLocation(program, "lightDiffuse");
+    materialSpecularLoc=gl.getUniformLocation(program, "materialSpecular");
+    materialDiffuseLoc=gl.getUniformLocation(program, "materialDiffuse");
+
+
+    gl.uniform4fv(lightSpecularLoc, flatten(lightSpecular));
+    gl.uniform4fv(lightDiffuseLoc, flatten(lightDiffuse));
+    gl.uniform4fv(materialSpecularLoc, flatten(materialSpecular));
+    gl.uniform4fv(materialDiffuseLoc, flatten(materialDiffuse));
+    gl.uniform4fv(lightAmbientLoc, flatten(lightAmbient));
+    gl.uniform4fv(materialAmbientLoc, flatten(materialAmbient));
+    gl.uniform4fv(lightPositionLoc, flatten(lightPosition));
+    gl.uniform1f(shinyLoc, materialShininess);
+    gl.uniform1i(lampLoc, lampOn);
     lighting();
 }
