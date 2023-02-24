@@ -167,14 +167,10 @@ function hierarchy(object) {
     gl.uniformMatrix4fv( animateMatrixLoc, false, flatten(animateMatrix) );
 
     configureTexture(object);
-    //gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(object.getModelMatrix()) );
+    //gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(object.getModelMatrix(animateMatrix)) );
 
     gl.uniformMatrix4fv(startingMatrixLoc, false, flatten(object.startingMatrix) );
-    gl.uniformMatrix4fv(animateMatrixLoc, false, flatten(object.animateMatrix) );
-
-
-
-
+    gl.uniformMatrix4fv(animateMatrixLoc, false, flatten(object.getModelMatrix(moveCar)) );
 
     let m=Array.from(object.materials.values());
     let index=0;
@@ -248,9 +244,7 @@ function keypressInput(event){
         case 'l':
             /*Toggle light on and off. Make sure that ambient light is applied when off*/
             lampOn=!lampOn;
-            console.log(lampOn);
             gl.uniform1i(lampLoc, lampOn);
-
             break;
         case 'c':
             /*
@@ -293,6 +287,7 @@ function loadObjects(){
     // Get the car
     car = new Model("car",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(-180));
     objectArray.push(car);
+    car.isCar=true;
     // Get the stop sign
     stopSign = new Model("stopSign",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(-90));
     objectArray.push(stopSign);
