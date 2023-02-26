@@ -5,19 +5,22 @@
         <title>CS 4731 Final Project Part I</title>
         <script id="vshader" type="x-shader/x-vertex">
             attribute vec4 vPosition, vColor,vNormal;
-            uniform mat4 modelMatrix,cameraMatrix, animateMatrix, startingMatrix, projectionMatrix;
+            uniform mat4 shadowMatrix, modelMatrix,cameraMatrix, projectionMatrix;
 			uniform vec4 diffuseProduct, specularProduct, ambientProduct;
 			uniform vec4 lightPosition;
 			uniform float shininess;
 			varying vec3 L, N, V, fPosition;
 			varying vec4 fColor;
+			varying mat4 modelViewMatrix;
+			uniform bool shadowsVisible;
             
             attribute vec2 vTexCoord;
 			varying vec2 fTexCoord;
 
             void main() {
-                mat4 modelsMatrix=animateMatrix * startingMatrix;
-                mat4 modelViewMatrix=cameraMatrix*modelsMatrix;
+                if(shadowsVisible) modelViewMatrix=cameraMatrix*shadowMatrix;
+                else modelViewMatrix=cameraMatrix*modelMatrix;
+                //modelViewMatrix=cameraMatrix*modelMatrix;
                 vec3 pos = (modelMatrix * vPosition).xyz;
 		        L = normalize(lightPosition.xyz - pos);
 		        N = normalize(modelMatrix * vNormal).xyz;
@@ -37,27 +40,31 @@
 			uniform vec4 lightSpecular, lightDiffuse, lightAmbient;
             uniform vec4 materialDiffuse, materialSpecular, materialAmbient;
 			uniform highp float shininess;
-			uniform bool lampOn;
+			uniform bool lampOn, shadowsVisible;
 			
             void main() {
-                vec3 R = (2.0 * dot(L, N) * N) - L;
-                vec4 diffuseProduct=lightDiffuse*materialDiffuse;
-		        vec4 diffuse = diffuseProduct * dot(L, N);
-		        vec4 ambient = lightAmbient*materialAmbient;
-		        vec4 specularProduct = lightSpecular * materialSpecular;
-		        vec4 specular = specularProduct * pow(max(dot(V, R), 0.0), shininess);
-		        vec4 objectColor= texture2D(texture, fTexCoord);
-		        vec4 pColor;
-		        
-		        vec4 light;
-		        if(lampOn){
-		           light=specular+diffuse+ambient;
-		        }else{
-		           light=ambient+diffuse*0.5;
-		        }
-		        pColor=light+objectColor;
-                pColor.a=1.0;
-                gl_FragColor = pColor;
+                if(shadowsVisible && lampOn){
+                    gl_FragColor =vec4(0.1, 0.1, 0.01, 1.0);
+                }else{
+	                vec3 R = (2.0 * dot(L, N) * N) - L;
+	                vec4 diffuseProduct=lightDiffuse*materialDiffuse;
+			        vec4 diffuse = diffuseProduct * dot(L, N);
+			        vec4 ambient = lightAmbient*materialAmbient;
+			        vec4 specularProduct = lightSpecular * materialSpecular;
+			        vec4 specular = specularProduct * pow(max(dot(V, R), 0.0), shininess);
+			        vec4 objectColor= texture2D(texture, fTexCoord);
+			        vec4 pColor;
+			        
+			        vec4 light;
+			        if(lampOn){
+			           light=specular+diffuse+ambient;
+			        }else{
+			           light=(ambient+diffuse)*0.1;
+			        }
+			        pColor=light+objectColor;
+	                pColor.a=1.0;
+	                gl_FragColor = pColor;
+                }
             }
         </script>
 
