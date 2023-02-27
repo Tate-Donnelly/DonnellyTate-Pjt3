@@ -6,6 +6,10 @@
  * - Press B to reset all object and stop animations
  * - Applies the shininess in the objects' obj file
  * - The lamp's shadow and bunny's shadow work
+ * - Added an extra car and stop sign (Cars are stopped at the same time)
+ * - Press I to increase the car's speed
+ * - Press O to decrease the car's speed
+ * - Press P to reverse the direction the car is traveling in
  * **/
 
 
@@ -13,46 +17,22 @@ let gl, program,canvas;
 var objectArray = [];
 let objectsReady=false;
 let lampOn=true, shadowsVisible=true,skyboxOn=false;
-let moveCar=false;
-let moveCamera=false,moveWithCar=false;
+let moveCar=false, moveCamera=false,moveWithCar=false;
 let reflect=false,refract=false;
-let lamp, car, stopSign, street, bunny, skybox;
+let lamp, car, car2, stopSign, stopSign2, street, bunny, skybox;
 let diffuse=.7;
 let specular=.8;
 let lightPosition =vec4(-2, 5, 1.25,1);
 let lightAmbient = vec4(0.2, 0.2, 0.2, .2);
 let lightDiffuse = vec4(diffuse, diffuse, diffuse, 1.0);
 let lightSpecular = vec4(specular,specular,specular, 1.0);
-let shinyLoc;
-
-let lightAmbientLoc, lightPositionLoc, lightSpecularLoc, lightDiffuseLoc;
-let materialSpecularLoc,materialDiffuseLoc,materialAmbientLoc, lampLoc;
-let shadowMatrix=mat4();
-
-
-var materialAmbient = vec4( 1.0, 1.0, 1.0, 1.0 );
-var materialDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
-var materialSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
-var materialShininess = 10.0;
 
 let startingMatrix, animateMatrix, projMatrix,cameraMatrix, modelMatrix;
-let projectionMatrixLoc, cameraMatrixLoc, modelMatrixLoc;
+let cameraMatrixLoc, modelMatrixLoc;
 let startingMatrixStack=[],animateMatrixStack=[];
-let startingMatrixLoc, animateMatrixLoc,textureLoc;
-let carCamPosition=vec3(0,4.5,7.5);
-let carCamTarget = vec3(0, 0, 0.0);
-let cameraPosition= vec3(0,4.5,7.5);
-let cameraTarget = vec3(0, 0, 0.0);
-let cameraUp = vec3(0.0, 1.0, 0.0);
-let cameraCounterClockwise=true;
 
-let cameraRotation=0;
-
-let near = .1;
-let far = 100;
-let fov=60;
-
-
+let cameraPosition= vec3(0,4.5,7.5), cameraTarget = vec3(0, 0, 0.0);
+let cameraCounterClockwise=true, cameraRotation=0;
 function main() {
     // Retrieve <canvas> element
     canvas = document.getElementById('webgl');
@@ -79,7 +59,6 @@ function main() {
     gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     program = initShaders(gl, "vshader", "fshader");
     gl.useProgram(program);
-    textureLoc=gl.getUniformLocation(program, "texture");
     gl.uniform1i(gl.getUniformLocation(program, "texMap"), 1);
     gl.uniform1i(gl.getUniformLocation(program,"reflection"),reflect);
     gl.uniform1i(gl.getUniformLocation(program,"refraction"),refract);
@@ -90,25 +69,6 @@ function main() {
     modelViewMatrix();
     defaultLighting();
     renderSetup();
-}
-
-
-
-function setCameraMatrix(){
-    let bob,pos,target;
-    let view;
-    if(moveWithCar){
-        pos=vec4(...mult(car.carCamPosition,vec4(0,1,1)));
-        target=vec4(...mult(car.carCamPosition,vec4(0,.75,1.7)));
-        view = lookAt([pos[0],pos[1],pos[2]], vec3(target[0],target[1],target[2]), cameraUp);
-        gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(view) );
-    }else {
-        bob = scale(Math.sin(cameraRotation / 25), vec4(0.0, .2500, 0.0, 0.0));
-        pos = add(mult(rotateY(cameraRotation), vec4(...cameraPosition)), bob);
-        target = mult(rotateY(cameraRotation), vec4(...cameraTarget));
-        view = lookAt([pos[0], pos[1], pos[2]], [target[0], target[1], target[2]], cameraUp);
-        gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(view) );
-    }
 }
 
 function render(){
@@ -126,14 +86,17 @@ function render(){
 
 /*Checks to make sure all objects have been parsed*/
 function checkObjects(){
-    let result=true;
-    objectArray.forEach(object=>{
-        result=result && object.mtlParsed && object.objParsed && object.ready;
-        console.log(object.name,result,object.mtlParsed,object.objParsed,object.ready);
-    })
-    console.log("Objects are ready",result);
-    if(result) render();
-    else requestAnimFrame(checkObjects);
+    if(objectArray.length>=4){
+        let result=true;
+        objectArray.forEach(object=>{
+            result=result && object.mtlParsed && object.objParsed && object.ready;
+            if(object.lightPosition===null) object.lightPosition=lightPosition;
+            //console.log(object.name,result,object.mtlParsed,object.objParsed,object.ready);
+        })
+        //console.log("Objects are ready",result);
+        if(result) render();
+        else requestAnimFrame(checkObjects);
+    }else requestAnimFrame(checkObjects);
 }
 
 //Handles hierarchical transformations
@@ -144,7 +107,7 @@ function hierarchy(object) {
     startingMatrixStack.push(startingMatrix);
     animateMatrixStack.push(animateMatrix);
     startingMatrix = mult(startingMatrix,object.startingMatrix);
-    animateMatrix = mult(object.getModelMatrix(moveCar), animateMatrix);
+    animateMatrix = mult(object.getModelMatrix(moveCar,speed), animateMatrix);
 
         renderHierarchy(object);
 
@@ -159,63 +122,30 @@ function renderHierarchy(object){
     }
     modelMatrix=mult(animateMatrix,startingMatrix);
     gl.uniformMatrix4fv( modelMatrixLoc, false, flatten(modelMatrix) );
-    object.render();
+    object.render(shadowsVisible && lampOn);
 
     for(let i = 0; i < object.children.length; i++) {
         hierarchy(object.children[i]);
     }
 }
 
-function makeShadows(material){
-    if(!shadowsVisible || !lampOn) return;
-    createBuffer(4,'vNormal',material.faceNormals);
-    createBuffer(2,'vTexCoord',material.faceTexCoords);
-    let origin=translate(lightPosition[0],lightPosition[1],lightPosition[2]);
-
-    let shadows=mat4();
-    shadows[3][1]=-1/lightPosition[1];
-    shadows[3][3]=0;
-
-    let pos=translate(-lightPosition[0],-lightPosition[1],-lightPosition[2]);
-
-    let transformation=mult(mult(origin,shadows),pos);
-    shadowMatrix=mult(transformation,modelMatrix);
-
-    gl.uniform1i(gl.getUniformLocation(program,"shadowsVisible"),true);
-    gl.uniformMatrix4fv(gl.getUniformLocation(program,"shadowMatrix"), false, flatten(shadowMatrix));
-    gl.drawArrays(gl.TRIANGLES, 0, material.faceVertices.length);
-    gl.uniform1i(gl.getUniformLocation(program,"shadowsVisible"),false);
-}
-
-//Draws an item by material instead of by face
-function drawByMaterial(object, material)
-{
-    materialDiffuse=object.diffuseMap.get(material.material);
-    materialSpecular=object.specularMap.get(material.material);
-    gl.uniform1f(shinyLoc, object.shiny);
-    lighting();
-
-    createBuffer(4,'vPosition',material.faceVertices);
-    createBuffer(4,'vNormal',material.faceNormals);
-    createBuffer(2,'vTexCoord',material.faceTexCoords);
-    gl.drawArrays( gl.TRIANGLES, 0, material.faceVertices.length );
-}
-
-function lighting(){
-    gl.uniform4fv(lightSpecularLoc, flatten(lightSpecular));
-    gl.uniform4fv(lightDiffuseLoc, flatten(lightDiffuse));
-    gl.uniform4fv(materialSpecularLoc, flatten(materialSpecular));
-    gl.uniform4fv(materialDiffuseLoc, flatten(materialDiffuse));
-    gl.uniform1f(shinyLoc, materialShininess);
-}
 
 window.addEventListener("keypress",(event)=>{
     keypressInput(event);
 });
-
+let speed=1;
 /*Handles Keyboard Input*/
 function keypressInput(event){
     switch (event.key){
+        case 'i':
+            speed++;
+            break;
+        case 'o':
+            speed--;
+            break;
+        case 'p':
+            speed=-speed;
+            break;
         case 'a':
             cameraCounterClockwise=!cameraCounterClockwise;
             break;
@@ -233,7 +163,7 @@ function keypressInput(event){
         case 'l':
             /*Toggle light on and off. Make sure that ambient light is applied when off*/
             lampOn=!lampOn;
-            gl.uniform1i(lampLoc, lampOn);
+            gl.uniform1i(gl.getUniformLocation(program, "lampOn"), lampOn);
             break;
         case 'c':
             /*
@@ -285,12 +215,27 @@ function loadObjects(){
     objectArray.push(car);
     car.isCar=true;
     car.canMakeShadow=true;
+
+
     // Get the stop sign
     stopSign = new Model("stopSign",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(-90));
     objectArray.push(stopSign);
     stopSign.canMakeShadow=true;
+
+    /*car2 = new Model("car2",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(0));
+    objectArray.push(car2);
+    car2.isCar=true;
+    car2.canMakeShadow=true;
+
+    // Get the stop sign
+    stopSign2 = new Model("stopSign",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(90));
+    objectArray.push(stopSign2);
+    stopSign2.canMakeShadow=true;*/
+
     // Get the street
+//    street = new Model("street",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",translate(0,0,0));
     street = new Model("street",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",translate(0,0,0));
+
     objectArray.push(street);
     // Get the bunny
     bunny = new Model("bunny",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",translate(0,.75,1.5));
@@ -311,28 +256,18 @@ function createBuffer(size,attribute, array){
 
 //Sets up the default lighting
 function defaultLighting(){
-    shinyLoc=gl.getUniformLocation(program, "shininess");
-    lightAmbientLoc=gl.getUniformLocation(program, "lightAmbient");
-    lightPositionLoc=gl.getUniformLocation(program, "lightPosition");
-    materialAmbientLoc=gl.getUniformLocation(program, "materialAmbient");
-    lampLoc=gl.getUniformLocation(program, "lampOn");
+    gl.uniform4fv(gl.getUniformLocation(program, "lightPosition"), flatten(lightPosition));
+    gl.uniform4fv(gl.getUniformLocation(program, "lightAmbient"), flatten(lightAmbient));
+    gl.uniform4fv(gl.getUniformLocation(program, "lightDiffuse"), flatten(lightDiffuse));
+    gl.uniform4fv(gl.getUniformLocation(program, "lightSpecular"), flatten(lightSpecular));
 
-    lightSpecularLoc=gl.getUniformLocation(program, "lightSpecular");
-    lightDiffuseLoc=gl.getUniformLocation(program, "lightDiffuse");
-    materialSpecularLoc=gl.getUniformLocation(program, "materialSpecular");
-    materialDiffuseLoc=gl.getUniformLocation(program, "materialDiffuse");
+    gl.uniform4fv(gl.getUniformLocation(program, "materialAmbient"), flatten(vec4( 1.0, 1.0, 1.0, 1.0 )));
+    gl.uniform4fv(gl.getUniformLocation(program, "materialDiffuse"), flatten(vec4( 1.0, 1.0, 1.0, 1.0 )));
+    gl.uniform4fv(gl.getUniformLocation(program, "materialSpecular"), flatten(vec4( 1.0, 1.0, 1.0, 1.0 )));
+    gl.uniform1f(gl.getUniformLocation(program, "shininess"), 10.0);
 
 
-    gl.uniform4fv(lightSpecularLoc, flatten(lightSpecular));
-    gl.uniform4fv(lightDiffuseLoc, flatten(lightDiffuse));
-    gl.uniform4fv(materialSpecularLoc, flatten(materialSpecular));
-    gl.uniform4fv(materialDiffuseLoc, flatten(materialDiffuse));
-    gl.uniform4fv(lightAmbientLoc, flatten(lightAmbient));
-    gl.uniform4fv(materialAmbientLoc, flatten(materialAmbient));
-    gl.uniform4fv(lightPositionLoc, flatten(lightPosition));
-    gl.uniform1f(shinyLoc, materialShininess);
-    gl.uniform1i(lampLoc, lampOn);
-    lighting();
+    gl.uniform1i(gl.getUniformLocation(program, "lampOn"), lampOn);
 }
 
 
@@ -342,38 +277,56 @@ function renderSetup(){
     else checkObjects();
 }
 
+/*Sets all the objects' children and parent*/
 function loadObjectArray(){
     skybox=new Skybox(0);
     loadObjects();
     car.addChild(bunny);
     street.addChild(car);
+    //street.addChild(car2);
     street.addChild(stopSign);
-
+    //street.addChild(stopSign2);
     street.addChild(lamp);
 }
 
 function projectionMatrix(){
-    projMatrix=perspective(fov,canvas.width/canvas.height,near,far);
-    projectionMatrixLoc = gl.getUniformLocation( program, "projectionMatrix" );
-    gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projMatrix) );
+    projMatrix=perspective(60,canvas.width/canvas.height,.1,100);
+    gl.uniformMatrix4fv(gl.getUniformLocation( program, "projectionMatrix" ), false, flatten(projMatrix) );
 }
+
+/*Sets the initial modelViewMatrix*/
 function modelViewMatrix(){
     setCameraMatrix();
-
+    modelMatrix=mat4();
     startingMatrix=mat4();
     animateMatrix=mat4();
-    modelMatrix=mat4();
 
     //Model
     modelMatrixLoc=gl.getUniformLocation( program, "modelMatrix" );
-    startingMatrixLoc=gl.getUniformLocation( program, "startingMatrix" );
-    animateMatrixLoc=gl.getUniformLocation( program, "animateMatrix" );
     gl.uniformMatrix4fv(modelMatrixLoc, false, flatten(modelMatrix ) );
-    gl.uniformMatrix4fv(startingMatrixLoc, false, flatten(startingMatrix) );
-    gl.uniformMatrix4fv(animateMatrixLoc, false, flatten(animateMatrix) );
 
     //View
     cameraMatrixLoc=gl.getUniformLocation( program, "cameraMatrix" );
-    cameraMatrix = lookAt(cameraPosition, cameraTarget , cameraUp);
+    cameraMatrix = lookAt(cameraPosition, cameraTarget , vec3(0.0, 1.0, 0.0));
     gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(cameraMatrix) );
+}
+
+/*Sets the camera's position matrix and handles its transformations*/
+function setCameraMatrix(){
+    let bob,pos,target;
+    let view;
+    if(moveWithCar){
+        //Sets the camera's position if it's from the car's POV
+        pos=vec4(...mult(car.carCamPosition,vec4(0,1,1)));
+        target=vec4(...mult(car.carCamPosition,vec4(0,.75,1.7)));
+        view = lookAt([pos[0],pos[1],pos[2]], vec3(target[0],target[1],target[2]), vec3(0.0, 1.0, 0.0));
+        gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(view) );
+    }else {
+        // Spins the camera in a circle while bobbing
+        bob = scale(Math.sin(cameraRotation / 25), vec4(0.0, .2500, 0.0, 0.0));
+        pos = add(mult(rotateY(cameraRotation), vec4(...cameraPosition)), bob);
+        target = mult(rotateY(cameraRotation), vec4(...cameraTarget));
+        view = lookAt([pos[0], pos[1], pos[2]], [target[0], target[1], target[2]], vec3(0.0, 1.0, 0.0));
+        gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(view) );
+    }
 }
