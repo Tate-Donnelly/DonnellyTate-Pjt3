@@ -4,15 +4,19 @@
  * Extra Credit
  * - Press A to switch the direction of your camera rotation
  * - Press B to reset all object and stop animations
+ * - Applies the shininess in the objects' obj file
+ * - The lamp's shadow and bunny's shadow work
  * **/
+
+
 let gl, program,canvas;
 var objectArray = [];
 let objectsReady=false;
-let lampOn=true, shadowsVisible=true,skyboxOn=true;
+let lampOn=true, shadowsVisible=true,skyboxOn=false;
 let moveCar=false;
 let moveCamera=false,moveWithCar=false;
-let reflectionsOn=true;
-let lamp, car, stopSign, street, bunny;
+let reflect=false,refract=false;
+let lamp, car, stopSign, street, bunny, skybox;
 let diffuse=.7;
 let specular=.8;
 let lightPosition =vec4(-2, 5, 1.25,1);
@@ -76,6 +80,10 @@ function main() {
     program = initShaders(gl, "vshader", "fshader");
     gl.useProgram(program);
     textureLoc=gl.getUniformLocation(program, "texture");
+    gl.uniform1i(gl.getUniformLocation(program, "texMap"), 1);
+    gl.uniform1i(gl.getUniformLocation(program,"reflection"),reflect);
+    gl.uniform1i(gl.getUniformLocation(program,"refraction"),refract);
+    gl.uniform1i(gl.getUniformLocation(program,"skybox"),skyboxOn);
 
     loadObjectArray();
     projectionMatrix();
@@ -90,22 +98,18 @@ function setCameraMatrix(){
     let bob,pos,target;
     let view;
     if(moveWithCar){
-        pos=vec3(carCamPosition.x,carCamPosition.y,carCamPosition.z);
-        target=vec3(carCamTarget.x,carCamTarget.y,carCamTarget.z);
-        view = lookAt(pos, target, cameraUp);
+        pos=vec4(...mult(car.carCamPosition,vec4(0,1,1)));
+        target=vec4(...mult(car.carCamPosition,vec4(0,.75,1.7)));
+        view = lookAt([pos[0],pos[1],pos[2]], vec3(target[0],target[1],target[2]), cameraUp);
         gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(view) );
     }else {
         bob = scale(Math.sin(cameraRotation / 25), vec4(0.0, .2500, 0.0, 0.0));
-
         pos = add(mult(rotateY(cameraRotation), vec4(...cameraPosition)), bob);
-        //pos = mult(rotateY(cameraRotation), vec4(...cameraPosition));
         target = mult(rotateY(cameraRotation), vec4(...cameraTarget));
-
         view = lookAt([pos[0], pos[1], pos[2]], [target[0], target[1], target[2]], cameraUp);
         gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(view) );
     }
 }
-
 
 function render(){
     gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -115,6 +119,7 @@ function render(){
     }
 
     hierarchy(street);
+    if(skyboxOn) skybox.render();
     requestAnimFrame(render);
 }
 
@@ -122,29 +127,34 @@ function render(){
 /*Checks to make sure all objects have been parsed*/
 function checkObjects(){
     let result=true;
-    //objectsReady=false;
     objectArray.forEach(object=>{
         result=result && object.mtlParsed && object.objParsed && object.ready;
         console.log(object.name,result,object.mtlParsed,object.objParsed,object.ready);
-        //if(!result) requestAnimFrame(checkObjects);
     })
     console.log("Objects are ready",result);
-    //objectsReady=result;
     if(result) render();
     else requestAnimFrame(checkObjects);
 }
 
 //Handles hierarchical transformations
 function hierarchy(object) {
+    if(!object.ready) return;
     object.configureTexture();
 
     startingMatrixStack.push(startingMatrix);
     animateMatrixStack.push(animateMatrix);
     startingMatrix = mult(startingMatrix,object.startingMatrix);
     animateMatrix = mult(object.getModelMatrix(moveCar), animateMatrix);
+
+        renderHierarchy(object);
+
+    startingMatrix = startingMatrixStack.pop();
+    animateMatrix = animateMatrixStack.pop();
+}
+
+function renderHierarchy(object){
     if(object.isCar) {
-        carCamPosition=mult(mult(startingMatrix,bunny.position),mult(object.getModelMatrix(moveCar), animateMatrix));
-        carCamTarget=cameraTarget;
+        car.carCamPosition=mult(animateMatrix,startingMatrix);
         setCameraMatrix();
     }
     modelMatrix=mult(animateMatrix,startingMatrix);
@@ -154,8 +164,6 @@ function hierarchy(object) {
     for(let i = 0; i < object.children.length; i++) {
         hierarchy(object.children[i]);
     }
-    startingMatrix = startingMatrixStack.pop();
-    animateMatrix = animateMatrixStack.pop();
 }
 
 function makeShadows(material){
@@ -180,13 +188,12 @@ function makeShadows(material){
 }
 
 //Draws an item by material instead of by face
-function drawByMaterial(object,index, material)
+function drawByMaterial(object, material)
 {
     materialDiffuse=object.diffuseMap.get(material.material);
     materialSpecular=object.specularMap.get(material.material);
     gl.uniform1f(shinyLoc, object.shiny);
     lighting();
-    //makeShadows(object.canMakeShadow,material.faceVertices.length);
 
     createBuffer(4,'vPosition',material.faceVertices);
     createBuffer(4,'vNormal',material.faceNormals);
@@ -251,13 +258,17 @@ function keypressInput(event){
         case 'e':
             /*toggles the skybox on and off*/
             skyboxOn=!skyboxOn;
+            gl.uniform1i(gl.getUniformLocation(program,"skybox"),skyboxOn);
             break;
         case 'r':
             /*toggles reflections*/
-            reflectionsOn=!reflectionsOn;
+            reflect=!reflect;
+            gl.uniform1i(gl.getUniformLocation(program,"reflection"),reflect);
             break;
         case 'f':
             /*makes the hood ornament semitransparent and begin to refract the cube map*/
+            refract=!refract;
+            gl.uniform1i(gl.getUniformLocation(program,"refraction"),refract);
             break;
     }
 }
@@ -268,7 +279,7 @@ function loadObjects(){
     lamp = new Model("lamp",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj",
         "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl", translate(0,0,0));
     objectArray.push(lamp);
-    //lamp.canMakeShadow=true;
+    lamp.canMakeShadow=true;
     // Get the car
     car = new Model("car",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(-180));
     objectArray.push(car);
@@ -284,7 +295,7 @@ function loadObjects(){
     // Get the bunny
     bunny = new Model("bunny",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",translate(0,.75,1.5));
     objectArray.push(bunny);
-    // bunny.canMakeShadow=true;
+    bunny.canMakeShadow=true;
 }
 
 //Creates a buffer
@@ -332,11 +343,13 @@ function renderSetup(){
 }
 
 function loadObjectArray(){
+    skybox=new Skybox(0);
     loadObjects();
+    car.addChild(bunny);
     street.addChild(car);
     street.addChild(stopSign);
+
     street.addChild(lamp);
-    car.addChild(bunny);
 }
 
 function projectionMatrix(){

@@ -9,10 +9,9 @@
 			uniform vec4 diffuseProduct, specularProduct, ambientProduct;
 			uniform vec4 lightPosition;
 			uniform float shininess;
-			varying vec3 L, N, V, fPosition;
-			varying vec4 fColor;
+			varying vec3 L, N, V, R,fPosition;
 			varying mat4 modelViewMatrix;
-			uniform bool shadowsVisible;
+			uniform bool shadowsVisible,reflection, refraction;
             
             attribute vec2 vTexCoord;
 			varying vec2 fTexCoord;
@@ -20,12 +19,16 @@
             void main() {
                 if(shadowsVisible) modelViewMatrix=cameraMatrix*shadowMatrix;
                 else modelViewMatrix=cameraMatrix*modelMatrix;
-                //modelViewMatrix=cameraMatrix*modelMatrix;
-                vec3 pos = (modelMatrix * vPosition).xyz;
+                
+                vec3 pos = (modelViewMatrix * vPosition).xyz;
 		        L = normalize(lightPosition.xyz - pos);
-		        N = normalize(modelMatrix * vNormal).xyz;
+		        N = normalize(modelViewMatrix * vNormal).xyz;
 		        V = normalize(-pos);
+		        if(refraction) R = refract((modelMatrix * vPosition).xyz,normalize(modelMatrix * vNormal).xyz,0.9);
+		        if(reflection) R = reflect((modelMatrix * vPosition).xyz,normalize(modelMatrix * vNormal).xyz);
+		        
                 fTexCoord = vTexCoord;
+                fPosition=vPosition.xyz;
 			    gl_Position = projectionMatrix * modelViewMatrix * vPosition;
             }
         </script>
@@ -33,38 +36,54 @@
         <script id="fshader" type="x-shader/x-fragment">
             precision mediump float;
             uniform sampler2D texture;
+            uniform samplerCube texMap;
 			varying vec2 fTexCoord;
 			
-			varying vec4 fColor;
-			varying vec3 L, N, V;
+			varying vec3 L, N, V, R,fPosition;
 			uniform vec4 lightSpecular, lightDiffuse, lightAmbient;
             uniform vec4 materialDiffuse, materialSpecular, materialAmbient;
 			uniform highp float shininess;
-			uniform bool lampOn, shadowsVisible;
+			uniform bool lampOn, shadowsVisible, reflection, refraction,skybox;
 			
             void main() {
+                vec4 fColor;
                 if(shadowsVisible && lampOn){
-                    gl_FragColor =vec4(0.1, 0.1, 0.01, 1.0);
+                    fColor =vec4(0.1, 0.1, 0.01, 1.0);
+                }else if(refraction){
+                    fColor=textureCube(texMap, R);
+                }else if(skybox){
+                    fColor=textureCube(texMap, normalize(fPosition));
                 }else{
-	                vec3 R = (2.0 * dot(L, N) * N) - L;
 	                vec4 diffuseProduct=lightDiffuse*materialDiffuse;
 			        vec4 diffuse = diffuseProduct * dot(L, N);
-			        vec4 ambient = lightAmbient*materialAmbient;
+			       
+			        vec3 specR = (2.0 * dot(L, N) * N) - L;
 			        vec4 specularProduct = lightSpecular * materialSpecular;
-			        vec4 specular = specularProduct * pow(max(dot(V, R), 0.0), shininess);
+			        vec4 specular = specularProduct * pow(max(dot(V, specR), 0.0), shininess);
+			        
+			        vec4 ambient = lightAmbient*materialAmbient;
 			        vec4 objectColor= texture2D(texture, fTexCoord);
-			        vec4 pColor;
 			        
 			        vec4 light;
 			        if(lampOn){
-			           light=specular+diffuse+ambient;
+			           light=diffuse+specular+ambient;
 			        }else{
-			           light=(ambient+diffuse)*0.1;
+			           light=(ambient+diffuse)*0.2;
 			        }
-			        pColor=light+objectColor;
-	                pColor.a=1.0;
-	                gl_FragColor = pColor;
+			        
+			        fColor=light+objectColor;
+			        if(reflection){
+	                    fColor=fColor*(textureCube(texMap,R)*0.5);
+	                }else{
+	                    //fColor=light*objectColor;
+	                }
+			        
+	                fColor.a=1.0;
                 }
+                
+            
+                
+                gl_FragColor=fColor;
             }
         </script>
 
