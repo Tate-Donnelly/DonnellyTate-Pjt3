@@ -8,7 +8,7 @@
  * - The lamp's shadow and bunny's shadow work
  * - Added an extra car and stop sign (Cars are stopped at the same time)
  * - Press I to increase the car's speed
- * - Press O to decrease the car's speed
+ * - Press O to decrease the car's speed (Won't stop the car)
  * - Press P to reverse the direction the car is traveling in
  * **/
 
@@ -64,6 +64,7 @@ function main() {
     gl.uniform1i(gl.getUniformLocation(program,"refraction"),refract);
     gl.uniform1i(gl.getUniformLocation(program,"skybox"),skyboxOn);
 
+    skybox=new Skybox();
     loadObjectArray();
     projectionMatrix();
     modelViewMatrix();
@@ -81,22 +82,6 @@ function render(){
     hierarchy(street);
     if(skyboxOn) skybox.render();
     requestAnimFrame(render);
-}
-
-
-/*Checks to make sure all objects have been parsed*/
-function checkObjects(){
-    if(objectArray.length>=4){
-        let result=true;
-        objectArray.forEach(object=>{
-            result=result && object.mtlParsed && object.objParsed && object.ready;
-            if(object.lightPosition===null) object.lightPosition=lightPosition;
-            //console.log(object.name,result,object.mtlParsed,object.objParsed,object.ready);
-        })
-        //console.log("Objects are ready",result);
-        if(result) render();
-        else requestAnimFrame(checkObjects);
-    }else requestAnimFrame(checkObjects);
 }
 
 //Handles hierarchical transformations
@@ -129,6 +114,21 @@ function renderHierarchy(object){
     }
 }
 
+/*Checks to make sure all objects have been parsed*/
+function checkObjects(){
+    if(objectArray.length>=4){
+        let result=true;
+        objectArray.forEach(object=>{
+            result=result && object.mtlParsed && object.objParsed && object.ready;
+            if(object.lightPosition===null) object.lightPosition=lightPosition;
+            //console.log(object.name,result,object.mtlParsed,object.objParsed,object.ready);
+        })
+        //console.log("Objects are ready",result);
+        if(result) render();
+        else requestAnimFrame(checkObjects);
+    }else requestAnimFrame(checkObjects);
+}
+
 
 window.addEventListener("keypress",(event)=>{
     keypressInput(event);
@@ -138,10 +138,12 @@ let speed=1;
 function keypressInput(event){
     switch (event.key){
         case 'i':
-            speed++;
+            if(speed>0 && ((speed+1)!==0))  speed++;
+            else if(speed<0 && ((speed-1)!==0)) speed--;
             break;
         case 'o':
-            speed--;
+            if(speed>0 && ((speed-1)!==0))  speed--;
+            else if(speed<0 && ((speed+1)!==0)) if((speed+1)!==0) speed++;
             break;
         case 'p':
             speed=-speed;
@@ -206,39 +208,39 @@ function keypressInput(event){
 //Loads in and sets up the objects
 function loadObjects(){
     // Get the lamp
-    lamp = new Model("lamp",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj",
+    lamp = new Model("lamp","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj",
         "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl", translate(0,0,0));
     objectArray.push(lamp);
     lamp.canMakeShadow=true;
     // Get the car
-    car = new Model("car",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(-180));
+    car = new Model("car","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(-180));
     objectArray.push(car);
     car.isCar=true;
     car.canMakeShadow=true;
 
 
     // Get the stop sign
-    stopSign = new Model("stopSign",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(-90));
+    stopSign = new Model("stopSign","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(-90));
     objectArray.push(stopSign);
     stopSign.canMakeShadow=true;
 
-    /*car2 = new Model("car2",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(0));
+    /*car2 = new Model("car2","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(0));
     objectArray.push(car2);
     car2.isCar=true;
     car2.canMakeShadow=true;
 
     // Get the stop sign
-    stopSign2 = new Model("stopSign",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(90));
+    stopSign2 = new Model("stopSign","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(90));
     objectArray.push(stopSign2);
     stopSign2.canMakeShadow=true;*/
 
     // Get the street
 //    street = new Model("street",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",translate(0,0,0));
-    street = new Model("street",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",translate(0,0,0));
+    street = new Model("street","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",translate(0,0,0));
 
     objectArray.push(street);
     // Get the bunny
-    bunny = new Model("bunny",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",translate(0,.75,1.5));
+    bunny = new Model("bunny","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",translate(0,.75,1.5));
     objectArray.push(bunny);
     bunny.canMakeShadow=true;
 }

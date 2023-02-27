@@ -1,5 +1,6 @@
 class Skybox{
     constructor() {
+        console.log(gl);
     }
     /*
     textureConfigured=false;
