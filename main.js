@@ -1,4 +1,5 @@
 /**
+ * Some objects may not be drawn, just refresh the page until they're drawn
  * Extra Credit
  * - Press A to switch the direction of your camera rotation
  * - Press B to reset all object and stop animations
@@ -14,11 +15,11 @@
 let gl, program,canvas;
 var objectArray = [];
 let objectsReady=false;
-let lampOn=true, shadowsVisible=true,skyboxOn=false;
+let lampOn=true, shadowsVisible=true,skyboxOn=true;
 let moveCar=false, moveCamera=false,moveWithCar=false;
 let reflect=false,refract=false;
 let lamp, car, car2, stopSign, stopSign2, street, bunny, skybox;
-let diffuse=.7;
+let diffuse=1.0;
 let specular=.8;
 let lightPosition =vec4(-2, 5, 1.25,1);
 let lightAmbient = vec4(0.2, 0.2, 0.2, .2);
@@ -29,7 +30,7 @@ let startingMatrix, animateMatrix, projMatrix,cameraMatrix, modelMatrix;
 let cameraMatrixLoc, modelMatrixLoc;
 let startingMatrixStack=[],animateMatrixStack=[];
 
-let cameraPosition= vec3(0,4.5,4.5), cameraTarget = vec3(0, 0, 0.0);
+let cameraPosition= vec3(0,4.5,7.5), cameraTarget = vec3(0, 0, 0.0);
 let cameraCounterClockwise=true, cameraRotation=0;
 function main() {
     // Retrieve <canvas> element
@@ -63,13 +64,14 @@ function main() {
     //gl.uniform1i(gl.getUniformLocation(program,"skybox"),skyboxOn);
 
     skybox=new Skybox();
-    loadObjectArray();
+    loadObjects();
     projectionMatrix();
     modelViewMatrix();
     defaultLighting();
     renderSetup();
 }
 
+/*Render all objects*/
 function render(){
     gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     if(moveCamera || moveWithCar) {
@@ -82,13 +84,11 @@ function render(){
     requestAnimFrame(render);
 }
 
-//Handles hierarchical transformations
+/*Handles hierarchical transformations*/
 function hierarchy(object) {
-    if(!object.ready) return;
-    object.configureTexture();
-
     startingMatrixStack.push(startingMatrix);
     animateMatrixStack.push(animateMatrix);
+    console.log(object.name);
     startingMatrix = mult(startingMatrix,object.startingMatrix);
     animateMatrix = mult(object.getModelMatrix(moveCar,speed), animateMatrix);
 
@@ -98,6 +98,7 @@ function hierarchy(object) {
     animateMatrix = animateMatrixStack.pop();
 }
 
+/*Draw's an object with the given transformations, before drawing its children*/
 function renderHierarchy(object){
     if(object.isCar) {
         car.carCamPosition=mult(animateMatrix,startingMatrix);
@@ -105,22 +106,26 @@ function renderHierarchy(object){
     }
     modelMatrix=mult(animateMatrix,startingMatrix);
     gl.uniformMatrix4fv( modelMatrixLoc, false, flatten(modelMatrix) );
-    object.render(shadowsVisible && lampOn);
+    object.render();
 
+    if(object.children===null) return;
+    //console.log("Render "+object.name+"'s children",object.children);
+
+    //Draw children
     for(let i = 0; i < object.children.length; i++) {
+        console.log(object.children[i]);
         hierarchy(object.children[i]);
     }
 }
 
 /*Checks to make sure all objects have been parsed*/
 function checkObjects(){
-    if(objectArray.length>=4){
-        let result=true;
-        objectArray.forEach(object=>{
-            result=result && object.mtlParsed && object.objParsed && object.ready;
-            if(object.lightPosition===null) object.lightPosition=lightPosition;
-        })
-        if(result) render();
+    if(objectArray.length>=5) {
+        let result = true;
+        objectArray.forEach(object => {
+            result = result && object.readyToRender();
+        });
+        if (result) render();
         else requestAnimFrame(checkObjects);
     }else requestAnimFrame(checkObjects);
 }
@@ -202,24 +207,23 @@ function keypressInput(event){
 
 //Loads in and sets up the objects
 function loadObjects(){
+    skybox=new Skybox(0);
+
     // Get the lamp
     lamp = new Model("lamp","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.obj",
         "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/lamp.mtl", translate(0,0,0));
-    objectArray.push(lamp);
     lamp.canMakeShadow=true;
     // Get the car
     car = new Model("car","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(-180));
-    objectArray.push(car);
     car.isCar=true;
     car.canMakeShadow=true;
 
 
     // Get the stop sign
     stopSign = new Model("stopSign","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(-90));
-    objectArray.push(stopSign);
     stopSign.canMakeShadow=true;
-
-    /*car2 = new Model("car2","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(0));
+/*
+    car2 = new Model("car2","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(0));
     objectArray.push(car2);
     car2.isCar=true;
     car2.canMakeShadow=true;
@@ -230,15 +234,29 @@ function loadObjects(){
     stopSign2.canMakeShadow=true;*/
 
     // Get the street
-//    street = new Model("street",gl,"https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",translate(0,0,0));
     street = new Model("street","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",translate(0,0,0));
 
-    objectArray.push(street);
     // Get the bunny
     bunny = new Model("bunny","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",translate(0,.75,1.5));
-    objectArray.push(bunny);
     bunny.canMakeShadow=true;
     bunny.isBunny=true;
+    loadModels();
+}
+
+function loadModels(){
+    objectArray.push(street);
+    objectArray.push(bunny);
+    objectArray.push(car);
+    objectArray.push(stopSign);
+    objectArray.push(lamp);
+
+    street.children.push(lamp);
+    street.children.push(stopSign);
+    car.children.push(bunny);
+    street.children.push(car);
+    //street.addChild(car2);
+
+    //street.addChild(stopSign2);
 }
 
 //Creates a buffer
@@ -271,20 +289,8 @@ function defaultLighting(){
 
 //Makes sure the objects have been parsed before rendering
 function renderSetup(){
-    if(objectsReady) render();
+    if(objectsReady && street.children.length>=5) render();
     else checkObjects();
-}
-
-/*Sets all the objects' children and parent*/
-function loadObjectArray(){
-    skybox=new Skybox(0);
-    loadObjects();
-    car.addChild(bunny);
-    street.addChild(car);
-    //street.addChild(car2);
-    street.addChild(stopSign);
-    //street.addChild(stopSign2);
-    street.addChild(lamp);
 }
 
 function projectionMatrix(){
