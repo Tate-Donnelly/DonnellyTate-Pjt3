@@ -1,6 +1,4 @@
 /**
- * Note:
- * - Occasionally, objects aren't all drawn at once. Just refresh the page
  * Extra Credit
  * - Press A to switch the direction of your camera rotation
  * - Press B to reset all object and stop animations
@@ -31,7 +29,7 @@ let startingMatrix, animateMatrix, projMatrix,cameraMatrix, modelMatrix;
 let cameraMatrixLoc, modelMatrixLoc;
 let startingMatrixStack=[],animateMatrixStack=[];
 
-let cameraPosition= vec3(0,4.5,7.5), cameraTarget = vec3(0, 0, 0.0);
+let cameraPosition= vec3(0,4.5,4.5), cameraTarget = vec3(0, 0, 0.0);
 let cameraCounterClockwise=true, cameraRotation=0;
 function main() {
     // Retrieve <canvas> element
@@ -62,7 +60,7 @@ function main() {
     gl.uniform1i(gl.getUniformLocation(program, "texMap"), 1);
     gl.uniform1i(gl.getUniformLocation(program,"reflection"),reflect);
     gl.uniform1i(gl.getUniformLocation(program,"refraction"),refract);
-    gl.uniform1i(gl.getUniformLocation(program,"skybox"),skyboxOn);
+    //gl.uniform1i(gl.getUniformLocation(program,"skybox"),skyboxOn);
 
     skybox=new Skybox();
     loadObjectArray();
@@ -121,9 +119,7 @@ function checkObjects(){
         objectArray.forEach(object=>{
             result=result && object.mtlParsed && object.objParsed && object.ready;
             if(object.lightPosition===null) object.lightPosition=lightPosition;
-            //console.log(object.name,result,object.mtlParsed,object.objParsed,object.ready);
         })
-        //console.log("Objects are ready",result);
         if(result) render();
         else requestAnimFrame(checkObjects);
     }else requestAnimFrame(checkObjects);
@@ -190,12 +186,11 @@ function keypressInput(event){
         case 'e':
             /*toggles the skybox on and off*/
             skyboxOn=!skyboxOn;
-            gl.uniform1i(gl.getUniformLocation(program,"skybox"),skyboxOn);
+            //gl.uniform1i(gl.getUniformLocation(program,"skybox"),skyboxOn);
             break;
         case 'r':
             /*toggles reflections*/
             reflect=!reflect;
-            gl.uniform1i(gl.getUniformLocation(program,"reflection"),reflect);
             break;
         case 'f':
             /*makes the hood ornament semitransparent and begin to refract the cube map*/
@@ -243,6 +238,7 @@ function loadObjects(){
     bunny = new Model("bunny","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/bunny.mtl",translate(0,.75,1.5));
     objectArray.push(bunny);
     bunny.canMakeShadow=true;
+    bunny.isBunny=true;
 }
 
 //Creates a buffer

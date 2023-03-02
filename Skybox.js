@@ -1,22 +1,10 @@
 class Skybox{
-    constructor() {
-        console.log(gl);
-    }
-    /*
-    textureConfigured=false;
-    textureID=gl.TEXTURE1;
-    ready;
-    index=0;
-    imagePath=[
-        "data/skybox_posx.png",
-        "data/skybox_posy.png",
-        "data/skybox_posz.png",
-        "data/skybox_negx.png",
-        "data/skybox_negy.png",
-        "data/skybox_negz.png"
+
+    images=["data/skybox_posx.png","data/skybox_posy.png","data/skybox_posz.png",
+        "data/skybox_negx.png","data/skybox_negy.png","data/skybox_negz.png"
     ];
-    position=vec3(0.0,0.0,0.0);
-    images=[];
+
+    panels=[];
 
     vertices = [
         vec4(-10.0, -10.0, 10.0, 1.0),
@@ -24,83 +12,104 @@ class Skybox{
         vec4(10.0, 10.0, 10.0, 1.0),
         vec4(10.0,-10.0, 10.0, 1.0),
         vec4(-10.0, -10.0, -10.0, 1.0),
-        vec4(-10.0, 10.0, -10.0, 10.0),
+        vec4(-10.0, 10.0, -10.0, 1.0),
         vec4(10.0, 10.0, -10.0, 1.0),
         vec4(10.0, -10.0, -10.0, 1.0)
     ];
+    texCoord = [
+        vec2(0.0, 1.0),
+        vec2(0.0, 1.0),
+        vec2(1.0, 1.0),
+        vec2(1.0, 0.0)
+    ];
 
-    minT = 0.0;
-    maxT = 1.0;
+    faceVertices=[];
+    faceNormals=[];
+    faceTexCoords=[];
+
+    skyboxTexture=null;
+
+    textureConfigured=false;
 
     normals=[
-        vec3(-1, 0, 0),
-        vec3(1, 0, 0),
-        vec3(0, -1, 0),
-        vec3(0, 1, 0),
-        vec3(0, 0, -1),
-        vec3(0, 0, 1)
+        vec3(-10, 0, 0),
+        vec3(10, 0, 0),
+        vec3(0, -10, 0),
+        vec3(0, 10, 0),
+        vec3(0, 0, -10),
+        vec3(0, 0, 10)
     ];
+    constructor() {
 
-    texCoords = [
-        vec2(this.minT, this.minT),
-        vec2(this.minT, this.maxT),
-        vec2(this.maxT, this.maxT),
-        vec2(this.maxT, this.minT)
-    ];
+        this.setup();
 
+        this.faceVertices = flatten(this.faceVertices);
+        this.faceNormals = flatten(this.faceNormals);
+        this.faceTexCoords = flatten(this.faceTexCoords);
+        this.panelsReady=false;
+    }
 
-
-    constructor(index) {
-        this.index=index;
-        this.imagePath.forEach(path=>{
-            let image=new Image();
-            image.src=path;
-            image.crossOrigin="";
-            this.images.push(image);
+    setup(){
+        this.makeSide(2, 3, 7, 6, this.normals[0]); // +X side, -X facing
+        this.makeSide(5, 4, 0, 1, this.normals[1]); // -X Side, +X facing
+        this.makeSide(6, 5, 1, 2, this.normals[2]); // +Y Side, -Y facing
+        this.makeSide(3, 0, 4, 7, this.normals[3]); // -Y Side, +Y facing
+        this.makeSide(1, 0, 3, 2, this.normals[4]); // +Z side, -Z facing
+        this.makeSide(4, 5, 6, 7, this.normals[5]); // -Z Side, +Z facing
+        this.images.forEach(img=>{
+            let i=new Image;
+            i.src=img;
+            this.panels.push(i)
         })
-        this.check();
+        this.panelsReady=true;
     }
 
-    check(){
-        let result=true;
-        for(let i=0;i<this.images.length-1;i++){
-            result=result && (this.images[i]!==null);
-        }
-        this.ready=result;
-        if(!result) requestAnimationFrame(this.check);
-    }
-
-    render(){
-        if(!this.ready) return;
-        this.configureImage();
-        gl.uniform1f(gl.getUniformLocation(program, "shininess"), 10);
-
-        createBuffer(4,'vPosition',flatten(this.vertices));
-        createBuffer(4,'vNormal',flatten(this.normals));
-        createBuffer(2,'vTexCoord',flatten(this.texCoords));
-        gl.drawArrays( gl.TRIANGLES, 0, this.vertices.length );
-    }
-    configureImage() {
+    configureTextures(){
         if(this.textureConfigured) return;
-        this.texture = gl.createTexture();
+        this.skyboxTexture = gl.createTexture();
         gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.skyboxTexture);
 
+        // Set behavior for s-t texture coordinates outside the 0.0-1.0 range
         gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+        // Specify point-sampling behavior
         gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.images[0]);
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.images[1]);
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.images[2]);
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.images[3]);
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.images[4]);
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.images[5]);
+        // Specify the array of the two-dimensional texture elements
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.panels[0]);
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.panels[1]);
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.panels[2]);
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.panels[3]);
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.panels[4]);
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this.panels[5]);
 
         gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
         gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         this.textureConfigured=true;
-    }*/
+    }
+
+    render(){
+        gl.uniform1f(gl.getUniformLocation(program, "skybox"), true);
+        this.configureTextures();
+        gl.uniform1f(gl.getUniformLocation(program, "shininess"), 10);
+
+        createBuffer(4,'vPosition',flatten(this.faceVertices));
+        createBuffer(4,'vNormal',flatten(this.faceNormals));
+        createBuffer(2,'vTexCoord',flatten(this.faceTexCoords));
+        gl.drawArrays( gl.TRIANGLES, 0, this.faceVertices.length );
+        gl.uniform1f(gl.getUniformLocation(program, "skybox"), false);
+    }
+
+    makeSide(a, b, c, d, n) {
+        this.faceVertices.push(this.vertices[c],this.vertices[b],this.vertices[a]);
+        this.faceNormals.push(n);
+        this.faceTexCoords.push(this.texCoord[0], this.texCoord[1], this.texCoord[2]);
+
+        this.faceVertices.push(this.vertices[d],this.vertices[c],this.vertices[a]);
+        this.faceNormals.push(n);
+        this.faceTexCoords.push(this.texCoord[0], this.texCoord[2], this.texCoord[3]);
+    }
 }

@@ -24,7 +24,7 @@
 		        L = normalize(lightPosition.xyz - pos);
 		        N = normalize(modelViewMatrix * vNormal).xyz;
 		        V = normalize(-pos);
-		        if(refraction) R = refract((modelMatrix * vPosition).xyz,normalize(modelMatrix * vNormal).xyz,0.9);
+		        if(refraction) R = refract((modelMatrix * vPosition).xyz,normalize(modelMatrix * vNormal).xyz,0.95);
 		        if(reflection) R = reflect((modelMatrix * vPosition).xyz,normalize(modelMatrix * vNormal).xyz);
 		        
                 fTexCoord = vTexCoord;
@@ -46,13 +46,12 @@
 			uniform bool lampOn, shadowsVisible, reflection, refraction,skybox;
 			
             void main() {
-                vec4 fColor;
                 if(shadowsVisible && lampOn){
-                    fColor =vec4(0.1, 0.1, 0.01, 1.0);
+                    gl_FragColor =vec4(0.1, 0.1, 0.01, 1.0);
                 }else if(refraction){
-                    fColor=textureCube(texMap, R);
+                    gl_FragColor=textureCube(texMap, R);
                 }else if(skybox){
-                    fColor=textureCube(texMap, normalize(fPosition));
+                    gl_FragColor=textureCube(texMap, normalize(fPosition));
                 }else{
 	                vec4 diffuseProduct=lightDiffuse*materialDiffuse;
 			        vec4 diffuse = diffuseProduct * dot(L, N);
@@ -71,19 +70,16 @@
 			           light=(ambient+diffuse)*0.2;
 			        }
 			        
-			        fColor=light+objectColor;
+			        
+			        
+			        vec4 fColor=light+objectColor;
 			        if(reflection){
-	                    fColor=fColor*(textureCube(texMap,R)*0.5);
-	                }else{
-	                    //fColor=light*objectColor;
+	                    fColor=fColor+textureCube(texMap,R);
 	                }
 			        
 	                fColor.a=1.0;
+	                gl_FragColor=fColor;
                 }
-                
-            
-                
-                gl_FragColor=fColor;
             }
         </script>
 
@@ -95,6 +91,7 @@
         <script type="text/javascript" src="lib/face.js"></script>
 	    <script type="text/javascript" src="Material.js"></script>
 	    <script type="text/javascript" src="Skybox.js"></script>
+	    <script type="text/javascript" src="Panel.js"></script>
         <script type="text/javascript" src="main.js"></script>
 
     </head>
