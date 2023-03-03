@@ -61,7 +61,6 @@ function main() {
     gl.uniform1i(gl.getUniformLocation(program, "texMap"), 1);
     gl.uniform1i(gl.getUniformLocation(program,"reflection"),reflect);
     gl.uniform1i(gl.getUniformLocation(program,"refraction"),refract);
-    //gl.uniform1i(gl.getUniformLocation(program,"skybox"),skyboxOn);
 
     skybox=new Skybox();
     loadObjects();
@@ -191,7 +190,6 @@ function keypressInput(event){
         case 'e':
             /*toggles the skybox on and off*/
             skyboxOn=!skyboxOn;
-            //gl.uniform1i(gl.getUniformLocation(program,"skybox"),skyboxOn);
             break;
         case 'r':
             /*toggles reflections*/
@@ -200,7 +198,6 @@ function keypressInput(event){
         case 'f':
             /*makes the hood ornament semitransparent and begin to refract the cube map*/
             refract=!refract;
-            gl.uniform1i(gl.getUniformLocation(program,"refraction"),refract);
             break;
     }
 }

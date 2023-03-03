@@ -1,33 +1,35 @@
-panel1={a:vec4(10.0, 10.0, 10.0, 1.0),
-    b:vec4(10.0,-10.0, 10.0, 1.0),
-    c:vec4(10.0, -10.0, -10.0, 1.0),
-    d:vec4(10.0, 10.0, -10.0, 1.0),
-    n:vec3(-10, 0, 0)};
-panel2={a:vec4(-10.0, 10.0, -10.0, 1.0),
-    b:vec4(-10.0, -10.0, -10.0, 1.0),
-    c:vec4(-10.0, -10.0, 10.0, 1.0),
-    d:vec4(-10.0, 10.0, 10.0, 1.0),
-    n:vec3(10, 0, 0)};
-panel3={a:vec4(10.0, 10.0, -10.0, 1.0),
-    b:vec4(-10.0, 10.0, -10.0, 1.0),
-    c:vec4(-10.0, 10.0, 10.0, 1.0),
-    d:vec4(10.0, 10.0, 10.0, 1.0),
-    n:vec3(0, -10, 0)};
-panel4={a:vec4(10.0,-10.0, 10.0, 1.0),
-    b:vec4(-10.0, -10.0, 10.0, 1.0),
-    c:vec4(-10.0, -10.0, -10.0, 1.0),
-    d:vec4(10.0, -10.0, -10.0, 1.0),
-    n:vec3(0, 10, 0)};
-panel5={a:vec4(-10.0, 10.0, 10.0, 1.0),
-    b:vec4(-10.0, -10.0, 10.0, 1.0),
-    c:vec4(15.0,-10.0, 10.0, 1.0),
-    d:vec4(15.0, 10.0, 10.0, 1.0),
-    n:vec3(0, 0, -10)};
-panel6={a:vec4(-10.0, -10.0, -10.0, 1.0),
-    b:vec4(-10.0, 10.0, -10.0, 1.0),
-    c:vec4(10.0, 10.0, -10.0, 1.0),
-    d:vec4(10.0, -10.0, -10.0, 1.0),
-    n:vec3(0, 0, 10)};
+let x=10.0,y=10.0,z=10.0;
+let max=10.0, min=0.0;
+panel1={a:vec4(x, y, z, 1.0),
+    b:vec4(x,-y, z, 1.0),
+    c:vec4(x, -y, -z, 1.0),
+    d:vec4(x, y, -z, 1.0),
+    n:vec3(-x, 0, 0)};
+panel2={a:vec4(-x, y, -z, 1.0),
+    b:vec4(-x, -y, -z, 1.0),
+    c:vec4(-x, -y, z, 1.0),
+    d:vec4(-x, y, z, 1.0),
+    n:vec3(x, 0, 0)};
+panel3={a:vec4(x, y, -z, 1.0),
+    b:vec4(-x, y, -z, 1.0),
+    c:vec4(-x, y, z, 1.0),
+    d:vec4(x, y, z, 1.0),
+    n:vec3(0, -y, 0)};
+panel4={a:vec4(x,-y, z, 1.0),
+    b:vec4(-x, -y, z, 1.0),
+    c:vec4(-x, -y, -z, 1.0),
+    d:vec4(x, -y, -z, 1.0),
+    n:vec3(0, y, 0)};
+panel5={a:vec4(-x, y, z, 1.0),
+    b:vec4(-x, -y,z, 1.0),
+    c:vec4(x,-y, z, 1.0),
+    d:vec4(x, y, z, 1.0),
+    n:vec3(0, 0, -z)};
+panel6={a:vec4(-x, -y, -z, 1.0),
+    b:vec4(-x, y, -z, 1.0),
+    c:vec4(x, y, -z, 1.0),
+    d:vec4(x, -y, -z, 1.0),
+    n:vec3(0, 0, z)};
 class Skybox{
 
     images=["data/skybox_posx.png","data/skybox_posy.png","data/skybox_posz.png",
@@ -35,11 +37,12 @@ class Skybox{
     ];
 
     panels=[];
+
     texCoord = [
-        vec2(0.0, 10.0),
-        vec2(0.0, 10.0),
-        vec2(10.0, 10.0),
-        vec2(10.0, 0.0)
+        vec2(min, max),
+        vec2(min, min),
+        vec2(max, max),
+        vec2(max, min)
     ];
 
     faceVertices=[];
@@ -99,6 +102,7 @@ class Skybox{
         gl.uniform1f(gl.getUniformLocation(program, "skybox"), true);
         this.configureTextures();
         gl.uniform1f(gl.getUniformLocation(program, "shininess"), 10);
+        gl.uniformMatrix4fv( modelMatrixLoc, false, flatten(mat4()) );
 
         createBuffer(4,'vPosition',flatten(this.faceVertices));
         createBuffer(4,'vNormal',flatten(this.faceNormals));
@@ -111,8 +115,8 @@ class Skybox{
 
     /*Make's the Skybox's cube*/
     makeSkyBox(){
-        this.makeSide(panel1);
-        this.makeSide(panel2);
+        this.makeSide(panel1); //Left
+        this.makeSide(panel2); //Right
         this.makeSide(panel3);
         this.makeSide(panel4);
         this.makeSide(panel5);
