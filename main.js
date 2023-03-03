@@ -15,7 +15,7 @@
 let gl, program,canvas;
 var objectArray = [];
 let objectsReady=false;
-let lampOn=true, shadowsVisible=true,skyboxOn=true;
+let lampOn=true, shadowsVisible=true,skyboxOn=false;
 let moveCar=false, moveCamera=false,moveWithCar=false;
 let reflect=false,refract=false;
 let lamp, car, car2, stopSign, stopSign2, street, bunny, skybox;
@@ -219,7 +219,7 @@ function loadObjects(){
     // Get the stop sign
     stopSign = new Model("stopSign","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(-90));
     stopSign.canMakeShadow=true;
-/*
+
     car2 = new Model("car2","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/car.mtl",translate(-3,0,0),rotateY(0));
     objectArray.push(car2);
     car2.isCar=true;
@@ -228,7 +228,7 @@ function loadObjects(){
     // Get the stop sign
     stopSign2 = new Model("stopSign","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/stopsign.mtl",translate(-0.85,0,-4.0),rotateY(90));
     objectArray.push(stopSign2);
-    stopSign2.canMakeShadow=true;*/
+    stopSign2.canMakeShadow=true;
 
     // Get the street
     street = new Model("street","https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.obj", "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/street.mtl",translate(0,0,0));
@@ -251,9 +251,8 @@ function loadModels(){
     street.children.push(stopSign);
     car.children.push(bunny);
     street.children.push(car);
-    //street.addChild(car2);
-
-    //street.addChild(stopSign2);
+    street.children.push(car2);
+    street.children.push(stopSign2);
 }
 
 //Creates a buffer
@@ -324,7 +323,7 @@ function setCameraMatrix(){
         gl.uniformMatrix4fv(cameraMatrixLoc, false, flatten(view) );
     }else {
         // Spins the camera in a circle while bobbing
-        bob = scale(Math.sin(cameraRotation / 25), vec4(0.0, .2500, 0.0, 0.0));
+        bob = scale(Math.sin(cameraRotation / 25), vec4(0.0, .500, 0.0, 0.0));
         pos = add(mult(rotateY(cameraRotation), vec4(...cameraPosition)), bob);
         target = mult(rotateY(cameraRotation), vec4(...cameraTarget));
         view = lookAt([pos[0], pos[1], pos[2]], [target[0], target[1], target[2]], vec3(0.0, 1.0, 0.0));
